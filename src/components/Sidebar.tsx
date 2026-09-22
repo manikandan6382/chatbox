@@ -12,7 +12,6 @@ interface SidebarProps {
   onDeleteChat: (id: string) => void;
   onRenameChat: (id: string, newTitle: string) => void;
   onLogout: () => void;
-  isDesktopOpen?: boolean;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
 }
@@ -26,7 +25,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDeleteChat,
   onRenameChat,
   onLogout,
-  isDesktopOpen = true,
   isMobileOpen = false,
   onCloseMobile
 }) => {
@@ -285,9 +283,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside className={`
         ${isMobileOpen 
           ? 'fixed inset-y-0 left-0 z-50 w-[300px] max-w-[85vw] h-[100dvh] rounded-r-3xl animate-in slide-in-from-left duration-300 shadow-2xl safe-top safe-bottom flex' 
-          : isDesktopOpen 
-            ? 'hidden md:flex w-[260px] xl:w-[280px] h-full rounded-3xl' 
-            : 'hidden'
+          : 'hidden lg:flex w-[280px] h-full rounded-3xl'
         }
         flex-shrink-0 flex-col justify-between bg-white/90 dark:bg-[#12151D]/95 backdrop-blur-3xl p-4 shadow-xl dark:shadow-black/50 border border-white/80 dark:border-white/10 transition-all select-none gpu-layer
       `}>

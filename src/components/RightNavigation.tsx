@@ -169,17 +169,17 @@ export const RightNavigation: React.FC<RightNavigationProps> = ({
 
   return (
     <>
-      {/* Mobile/Tablet Backdrop Dimming Overlay (Only active when opened as slide-over on screens < 1280px) */}
+      {/* Mobile/Laptop Backdrop Dimming Overlay (Dismisses drawer on screens < 1536px) */}
       <div 
         onClick={() => {
           sounds.playGlassClick();
           onClose();
         }}
-        className="fixed inset-0 bg-black/30 backdrop-blur-xs z-30 xl:hidden animate-in fade-in duration-200"
+        className="fixed inset-0 bg-black/25 backdrop-blur-[2px] z-30 2xl:hidden animate-in fade-in duration-200"
       />
 
       <aside 
-        className="fixed xl:relative right-2 sm:right-4 top-2 sm:top-4 bottom-2 sm:bottom-4 xl:right-auto xl:top-auto xl:bottom-auto w-[calc(100vw-20px)] max-w-[340px] xl:w-[300px] 2xl:w-[330px] flex-shrink-0 flex flex-col gap-3.5 h-[calc(100dvh-20px)] xl:h-full overflow-y-auto custom-scrollbar z-50 xl:z-20 animate-in slide-in-from-right-8 duration-300 pointer-events-auto p-0.5 gpu-layer ios-scroll safe-top safe-bottom"
+        className="fixed 2xl:relative right-2 sm:right-4 top-2 sm:top-4 bottom-2 sm:bottom-4 2xl:right-auto 2xl:top-auto 2xl:bottom-auto w-[calc(100vw-20px)] max-w-[340px] 2xl:w-[330px] flex-shrink-0 flex flex-col gap-3.5 h-[calc(100dvh-20px)] 2xl:h-full overflow-y-auto custom-scrollbar z-50 2xl:z-20 animate-in slide-in-from-right-8 duration-300 pointer-events-auto p-0.5 gpu-layer ios-scroll safe-top safe-bottom"
         aria-label="Context & Tool Suggestions"
       >
         

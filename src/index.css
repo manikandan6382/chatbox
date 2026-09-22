@@ -25,11 +25,10 @@
 
   * {
     -webkit-tap-highlight-color: transparent;
-    user-select: none;
-    touch-action: manipulation;
   }
-  input, textarea {
-    user-select: text;
+
+  button, a, [role="button"], .ios-press {
+    touch-action: manipulation;
   }
 }
 
@@ -89,6 +88,14 @@
 }
 
 /* Custom Scrollbars */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
