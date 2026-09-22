@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 315" width="500" height="315" style="border-radius: 18px; box-shadow: 0 20px 40px rgba(0,0,0,0.3);">
+  <defs>
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1A1C23" />
+      <stop offset="50%" stop-color="#121318" />
+      <stop offset="100%" stop-color="#090A0D" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE279" />
+      <stop offset="50%" stop-color="#FFC800" />
+      <stop offset="100%" stop-color="#B8860B" />
+    </linearGradient>
+    <linearGradient id="chipGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F5D77F" />
+      <stop offset="100%" stop-color="#D4AF37" />
+    </linearGradient>
+  </defs>
+
+  <!-- Card Background -->
+  <rect width="500" height="315" rx="18" fill="url(#cardGrad)" stroke="#333742" stroke-width="1.5" />
+
+  <!-- Subtle Geometric Wave Art on Card -->
+  <path d="M0,180 C150,140 300,240 500,160 L500,315 L0,315 Z" fill="url(#goldGrad)" opacity="0.08" />
+  <path d="M0,220 C180,180 320,280 500,210 L500,315 L0,315 Z" fill="url(#goldGrad)" opacity="0.05" />
+
+  <!-- Top Left: Maybank Logo Badge -->
+  <g transform="translate(30, 25)">
+    <rect width="130" height="34" rx="6" fill="#FFC800" />
+    <circle cx="18" cy="17" r="11" fill="#000000" />
+    <text x="18" y="21" font-family="'Inter', sans-serif" font-weight="900" font-size="11" fill="#FFC800" text-anchor="middle">M</text>
+    <text x="36" y="23" font-family="'Inter', sans-serif" font-weight="800" font-size="16" fill="#000000" letter-spacing="-0.5">Maybank</text>
+  </g>
+
+  <!-- Top Right: Horizon Visa Signature -->
+  <text x="470" y="47" font-family="'Inter', sans-serif" font-weight="700" font-size="14" fill="#FFC800" text-anchor="end" letter-spacing="1">HORIZON</text>
+
+  <!-- Contactless Waves -->
+  <path d="M440,75 A12,12 0 0,1 440,95 M445,70 A18,18 0 0,1 445,100 M450,65 A24,24 0 0,1 450,105" fill="none" stroke="#A0AEC0" stroke-width="2.5" stroke-linecap="round" />
+
+  <!-- EMV Chip -->
+  <rect x="35" y="90" width="55" height="42" rx="6" fill="url(#chipGrad)" stroke="#B8860B" stroke-width="1" />
+  <line x1="35" y1="111" x2="90" y2="111" stroke="#B8860B" stroke-width="0.8" />
+  <line x1="62" y1="90" x2="62" y2="132" stroke="#B8860B" stroke-width="0.8" />
+  <rect x="47" y="98" width="30" height="26" rx="4" fill="none" stroke="#B8860B" stroke-width="0.8" />
+
+  <!-- Card Number (Masked for Security) -->
+  <text x="35" y="195" font-family="'Courier New', monospace" font-weight="700" font-size="22" fill="#E2E8F0" letter-spacing="4">
+    ••••  ••••  ••••  4829
+  </text>
+
+  <!-- Valid Thru -->
+  <text x="35" y="235" font-family="'Inter', sans-serif" font-size="9" fill="#718096" text-transform="uppercase" letter-spacing="1">VALID THRU</text>
+  <text x="110" y="235" font-family="'Courier New', monospace" font-size="14" font-weight="bold" fill="#E2E8F0">08/28</text>
+
+  <!-- Cardholder Name -->
+  <text x="35" y="275" font-family="'Inter', sans-serif" font-weight="700" font-size="16" fill="#F7FAFC" letter-spacing="2">MANIKANDAN</text>
+
+  <!-- Visa Signature Logo -->
+  <g transform="translate(400, 245)">
+    <text x="0" y="26" font-family="'Inter', sans-serif" font-style="italic" font-weight="900" font-size="28" fill="#FFFFFF" letter-spacing="-1">VISA</text>
+    <text x="0" y="38" font-family="'Inter', sans-serif" font-size="9" font-weight="600" fill="#CBD5E0" letter-spacing="1">SIGNATURE</text>
+  </g>
+</svg>
