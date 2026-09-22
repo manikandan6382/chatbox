@@ -10,6 +10,7 @@ interface MobileHeaderProps {
   onNewChat: () => void;
   activeChatTitle?: string;
   onOpenSidebar: () => void;
+  embedded?: boolean;
 }
 
 export const MobileHeader: React.FC<MobileHeaderProps> = ({
@@ -19,10 +20,11 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   onToggleWallpaper,
   onNewChat,
   activeChatTitle = 'Maybank AI Assistant',
-  onOpenSidebar
+  onOpenSidebar,
+  embedded = false
 }) => {
   return (
-    <header className="lg:hidden sticky top-0 inset-x-0 z-30 gpu-layer flex flex-col bg-white/80 dark:bg-[#080B12]/85 backdrop-blur-2xl border-b border-slate-200/80 dark:border-white/10 shadow-xs safe-top transition-colors duration-300 select-none">
+    <header className={`${embedded ? 'flex' : 'md:hidden sticky top-0 inset-x-0 z-30 safe-top'} gpu-layer flex-col bg-white/80 dark:bg-[#080B12]/85 backdrop-blur-2xl border-b border-slate-200/80 dark:border-white/10 shadow-xs transition-colors duration-300 select-none`}>
       <div className="flex items-center justify-between px-3.5 py-2.5 gap-2">
         
         {/* Left: Brand Crest & Thread Indicator (Tapping opens chats drawer) */}

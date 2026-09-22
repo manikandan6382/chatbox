@@ -18,7 +18,8 @@ import { FormattedMessage } from './components/FormattedMessage';
 import { streamGeminiResponse, ChatMessageContext } from './services/aiService';
 import { 
   ChevronDown, Sun, Moon, Copy, Check, Volume2, VolumeX, 
-  ThumbsUp, Sparkles, Lock, Shield, LogOut, X, RotateCcw
+  ThumbsUp, Sparkles, Lock, Shield, LogOut, X, RotateCcw,
+  PanelLeft, PanelRight, Smartphone, Monitor
 } from 'lucide-react';
 
 interface Message {
@@ -51,6 +52,10 @@ export const App: React.FC = () => {
   const [externalInsertedText, setExternalInsertedText] = useState<string>('');
   const [selectedPreviewImage, setSelectedPreviewImage] = useState<string | null>(null);
   const [activeContextDoc, setActiveContextDoc] = useState<string | null>(null);
+
+  // Workspace Viewport States (Desktop 3-Column Workstation vs Apple iPhone Simulator)
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState<boolean>(true);
+  const [viewMode, setViewMode] = useState<'desktop' | 'mobile-preview'>('desktop');
 
   // Mobile Native App State (Thumb-Reach Tabs & Slide-Over Drawer)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
@@ -751,6 +756,7 @@ export const App: React.FC = () => {
             onRenameChat={handleRenameChat}
             onDeleteChat={handleDeleteChat}
             onLogout={handleLogout}
+            isDesktopOpen={isDesktopSidebarOpen}
             isMobileOpen={isMobileSidebarOpen}
             onCloseMobile={() => {
               setIsMobileSidebarOpen(false);
@@ -759,9 +765,9 @@ export const App: React.FC = () => {
           />
 
           {/* COLUMN 2: EXPANSIVE CHAT & WORKSPACE CANVAS */}
-          <main className="flex-1 flex flex-col justify-between overflow-hidden relative min-w-0 h-full pb-20 lg:pb-0">
+          <main className="flex-1 flex flex-col justify-between overflow-hidden relative min-w-0 h-full pb-16 md:pb-0">
 
-            {/* Mobile Native Apple Header */}
+            {/* Mobile Native Apple Header (Smartphones < 768px) */}
             <MobileHeader 
               theme={theme}
               onToggleTheme={toggleTheme}
@@ -772,354 +778,555 @@ export const App: React.FC = () => {
               onOpenSidebar={() => setIsMobileSidebarOpen(true)}
             />
 
-            {/* Desktop Telemetry Header Bar */}
-            <header className="hidden lg:flex items-center justify-between gap-4 pt-1 px-4 z-20">
+            {/* Unified Responsive Telemetry Header Bar (Tablets, Laptops & Desktops >= 768px) */}
+            <header className="hidden md:flex items-center justify-between gap-2.5 pt-1 px-3 sm:px-4 z-20">
           
-          {/* Top Left: Companion Capsule when chatting, or clean negative space when greeting */}
-          <div className="flex items-center gap-2">
-            {messages.length > 0 && (
-              <div 
-                onClick={() => sounds.playCuteSmile()}
-                className="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-white/80 dark:bg-[#181B22]/80 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-xs cursor-pointer group hover:scale-[1.02] active:scale-95 transition-all"
-                title="Maybank AI Companion (Click to interact)"
-              >
-                <div className="relative">
-                  <RobotAvatar size="sm" />
-                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-black animate-pulse" />
-                </div>
-                <div className="flex flex-col min-w-0 pr-1">
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 tracking-tight truncate max-w-[200px]">
-                    {chatThreads.find(t => t.id === activeSidebarItem)?.title || 'Active Session'}
-                  </span>
-                  <span className="text-[9px] text-slate-400 font-medium">AI Active</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Top Right Hardware Controls */}
-          <div className="flex items-center gap-2">
-            
-            {/* Google Gemini AI Live Engine Status Badge */}
-            <div 
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-400/10 border border-amber-400/25 text-amber-700 dark:text-amber-300 shadow-xs select-none"
-              title="Google Gemini 2.5 Flash Live Engine Active"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span className="text-xs font-bold tracking-tight hidden sm:inline">Gemini 2.5 Flash</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            </div>
-
-            {/* Mute/Sound Toggle Button */}
-            <button 
-              onClick={() => {
-                const next = !soundEnabled;
-                setSoundEnabled(next);
-                if (next) sounds.playCuteSmile();
-              }}
-              className="p-2 rounded-xl bg-white/80 dark:bg-[#181B22] border border-slate-200/70 dark:border-[#272B35] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#20242D] shadow-xs cursor-pointer active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-              title={soundEnabled ? "Mute Acoustic Feedback" : "Enable Acoustic Feedback"}
-            >
-              {soundEnabled ? (
-                <Volume2 className="w-4 h-4 text-sky-500" />
-              ) : (
-                <VolumeX className="w-4 h-4 text-slate-400" />
-              )}
-            </button>
-
-            {/* MAS Session Privacy Lock Button */}
-            <button 
-              onClick={() => {
-                sounds.playGlassClick();
-                setIsLocked(true);
-              }}
-              className="p-2 rounded-xl bg-white/80 dark:bg-[#181B22] border border-slate-200/70 dark:border-[#272B35] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#20242D] shadow-xs cursor-pointer group active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-              title="Lock Kiosk Session (MAS Compliance)"
-            >
-              <Lock className="w-4 h-4 group-hover:text-amber-500 transition-colors" />
-            </button>
-
-            {/* Theme Toggle Button */}
-            <button 
-              onClick={toggleTheme}
-              className="p-2 rounded-xl bg-white/80 dark:bg-[#181B22] border border-slate-200/70 dark:border-[#272B35] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#20242D] shadow-xs cursor-pointer active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-              title={theme === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
-            >
-              {theme === 'light' ? (
-                <Moon className="w-4 h-4 text-slate-600" />
-              ) : (
-                <Sun className="w-4 h-4 text-amber-400" />
-              )}
-            </button>
-
-            {/* Dark Wallpaper Motif Toggle (Obsidian Waves <-> Architectural Portal) */}
-            {theme === 'dark' && (
-              <button 
-                onClick={handleToggleWallpaper}
-                className="p-2 rounded-xl bg-white/80 dark:bg-[#181B22] border border-slate-200/70 dark:border-[#272B35] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#20242D] shadow-xs cursor-pointer group active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-                title={`Backdrop Motif: ${darkWallpaper === 'waves' ? 'Obsidian Waves' : 'Architectural Arch'} (Click to switch)`}
-                aria-label="Toggle Dark Wallpaper Backdrop"
-              >
-                <Sparkles className="w-4 h-4 text-amber-400 group-hover:rotate-12 transition-transform" />
-              </button>
-            )}
-
-            {/* User Profile Avatar */}
-            <div 
-              onClick={() => sounds.playGlassClick()}
-              className="w-8 h-8 rounded-xl bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-800 flex items-center justify-center font-bold text-xs shadow-xs border border-slate-700/50 cursor-pointer active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-              title="Branch Officer: Manikandan"
-            >
-              M
-            </div>
-
-            {/* Session Logout Action Button */}
-            <button 
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-semibold hover:bg-rose-100 dark:hover:bg-rose-500/20 cursor-pointer shadow-xs ml-1 active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-              title="Logout from Maybank Kiosk Session"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Exit</span>
-            </button>
-
-          </div>
-
-        </header>
-
-        {/* Scrollable Center Conversation Canvas */}
-        <div className="flex-1 overflow-y-auto px-4 md:px-8 py-2 custom-scrollbar">
-          
-          <div className="max-w-4xl mx-auto min-h-full flex flex-col justify-end">
-            
-            {/* Empty Greeting State */}
-            {messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center my-auto py-8 animate-in fade-in duration-500 text-center">
-                
-                {/* 🤖 Apple VisionOS Staged Robot Avatar Pedestal */}
-                <div 
-                  onClick={() => sounds.playCuteSmile()}
-                  className="group/avatar relative mb-6 cursor-pointer transform hover:scale-105 active:scale-95 transition-all duration-300"
-                  title="Maybank AI Companion (Click to interact)"
+              {/* Top Left: Sidebar Toggle & Companion Status */}
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => {
+                    sounds.playGlassClick();
+                    setIsDesktopSidebarOpen(!isDesktopSidebarOpen);
+                  }}
+                  className={`p-2 rounded-xl border transition-all cursor-pointer active:scale-90 duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+                    isDesktopSidebarOpen 
+                      ? 'bg-amber-400/15 border-amber-400/40 text-amber-600 dark:text-amber-400 shadow-xs' 
+                      : 'bg-white/80 dark:bg-[#181B22] border-slate-200/70 dark:border-[#272B35] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#20242D]'
+                  }`}
+                  title={isDesktopSidebarOpen ? "Hide Chat History (Left Sidebar)" : "Show Chat History (Left Sidebar)"}
+                  aria-label="Toggle Left Sidebar"
                 >
-                  {/* Frosted Multi-Tone VisionOS Ambient Aura */}
-                  <div className="absolute -inset-4 rounded-[40px] bg-gradient-to-tr from-sky-400/20 via-blue-500/15 to-amber-400/20 blur-xl opacity-80 group-hover/avatar:opacity-100 transition-opacity duration-500 animate-pulse" />
-                  
-                  {/* Frosted Ceramic Glass Pedestal Capsule */}
-                  <div className="relative flex flex-col items-center p-6 rounded-[36px] bg-gradient-to-b from-white/95 to-white/70 dark:from-[#181B22]/95 dark:to-[#181B22]/70 backdrop-blur-2xl border border-white/90 dark:border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)]">
-                    <RobotAvatar isCurrent={true} size="xl" />
-                    
-                    {/* Floating Status Pill */}
-                    <div className="mt-3.5 px-3 py-1 rounded-full bg-slate-100/90 dark:bg-white/10 border border-slate-200/80 dark:border-white/10 flex items-center gap-1.5 shadow-xs">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200 tracking-wider uppercase">
-                        AI Online • Ready
+                  <PanelLeft className="w-4 h-4" />
+                </button>
+
+                {messages.length > 0 && (
+                  <div 
+                    onClick={() => sounds.playCuteSmile()}
+                    className="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-white/80 dark:bg-[#181B22]/80 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-xs cursor-pointer group hover:scale-[1.02] active:scale-95 transition-all"
+                    title="Maybank AI Companion (Click to interact)"
+                  >
+                    <div className="relative">
+                      <RobotAvatar size="sm" />
+                      <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-black animate-pulse" />
+                    </div>
+                    <div className="flex flex-col min-w-0 pr-1">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 tracking-tight truncate max-w-[140px] lg:max-w-[190px]">
+                        {chatThreads.find(t => t.id === activeSidebarItem)?.title || 'Active Session'}
                       </span>
+                      <span className="text-[9px] text-slate-400 font-medium">AI Active</span>
                     </div>
                   </div>
-                </div>
-
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="text-center">
-                    <span className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-400 font-bold">
-                      {getSingaporeGreeting()}
-                    </span>
-                    <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                      Hello, <span className="text-blue-600 dark:text-sky-400 font-black">Manikandan.</span>
-                    </h2>
-                    <p className="text-xl md:text-2xl font-normal text-slate-400 dark:text-slate-500 mt-1">
-                      What can I help you with today?
-                    </p>
-                  </div>
-                </div>
-
-                <StarterCards onSelectPrompt={handleSendMessage} compact={false} />
+                )}
               </div>
-            )}
 
-            {/* Conversation Messages */}
-            {messages.length > 0 && (() => {
-              const lastAiIndex = isThinking ? -1 : messages.map(m => m.sender).lastIndexOf('ai');
-              return (
-                <div className="space-y-6 pt-2 w-full">
-                  {messages.map((msg, index) => (
-                    <div key={index}>
-                      {msg.sender === 'user' ? (
-                        /* Apple Royal Obsidian User Bubble */
-                        <div className="flex justify-end items-start gap-3 max-w-2xl ml-auto group">
-                          <div className="flex flex-col items-end">
-                            {/* Attached Image Glass Thumbnail */}
-                            {msg.image && (
-                              <div 
-                                onClick={() => setSelectedPreviewImage(msg.image || null)}
-                                className="mb-2 max-w-xs sm:max-w-sm rounded-2xl overflow-hidden border border-white/20 shadow-md cursor-pointer hover:opacity-95 transition-opacity group/img relative bg-slate-950/20 backdrop-blur-md"
-                                title="Click to expand full image"
-                              >
-                                <img 
-                                  src={msg.image} 
-                                  alt="Attached document or screenshot" 
-                                  className="w-full max-h-60 object-cover rounded-2xl" 
-                                />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold backdrop-blur-xs gap-1.5">
-                                  <span>Tap to zoom</span>
-                                </div>
-                              </div>
-                            )}
+              {/* Top Center: MAS TRM Compliance Capsule & Viewport Mode Switcher */}
+              <div className="flex items-center gap-2">
+                <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100/90 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-xs font-semibold backdrop-blur-xl shadow-xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[11px] text-slate-700 dark:text-slate-300 font-medium">MAS TRM Guard • Online</span>
+                </div>
 
-                            <div className="bg-slate-900 text-white dark:bg-[#1E293B]/95 dark:text-slate-100 px-5 py-3.5 rounded-3xl rounded-tr-sm text-[14px] leading-relaxed font-normal shadow-md border border-slate-800/10 dark:border-white/15 backdrop-blur-xl transition-all">
-                              {msg.text}
-                            </div>
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 pr-1 font-medium">
-                              {msg.time || '10:24 AM'}
-                            </span>
-                          </div>
-                          <div className="w-8 h-8 rounded-full bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-800 flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5 shadow-sm ring-2 ring-slate-200/60 dark:ring-white/20">
-                            M
-                          </div>
-                        </div>
-                      ) : (
-                        /* Apple Luxury AI Bubble with 3D Cute Eye-Tracking Robot */
-                        <div className="flex items-start gap-4 w-full">
-                          
-                          {/* 3D Cute Interactive Cyber Robot Avatar with Blinking & Winking */}
-                          <RobotAvatar 
-                            isCurrent={index === lastAiIndex} 
-                            size="lg" 
-                            className="mt-1 flex-shrink-0" 
-                          />
+                {/* Viewport Mode Switcher: Desktop Workstation <-> iPhone Simulator */}
+                <button 
+                  onClick={() => {
+                    sounds.playGlassClick();
+                    setViewMode(viewMode === 'desktop' ? 'mobile-preview' : 'desktop');
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer active:scale-90 duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-xs ${
+                    viewMode === 'mobile-preview'
+                      ? 'bg-sky-500 text-white border-sky-400 shadow-sky-500/25 ring-2 ring-sky-400/30'
+                      : 'bg-white/80 dark:bg-[#181B22] border-slate-200/70 dark:border-[#272B35] text-slate-700 dark:text-slate-200 hover:border-amber-400/50'
+                  }`}
+                  title={viewMode === 'desktop' ? "Switch to Apple iPhone Mobile App Simulator" : "Switch to Full 3-Column Desktop Workstation"}
+                >
+                  {viewMode === 'desktop' ? (
+                    <>
+                      <Smartphone className="w-3.5 h-3.5 text-amber-500" />
+                      <span className="hidden xl:inline font-bold">iPhone Mode</span>
+                    </>
+                  ) : (
+                    <>
+                      <Monitor className="w-3.5 h-3.5 text-white" />
+                      <span>Desktop Mode</span>
+                    </>
+                  )}
+                </button>
+              </div>
 
-                          <div className="flex-1 space-y-3 min-w-0">
-                            
-                            {/* Ceramic Glass Response Card */}
-                            <div className="bg-white/95 dark:bg-[#131722]/90 backdrop-blur-2xl text-slate-800 dark:text-slate-100 p-5 rounded-3xl rounded-tl-sm text-[14px] leading-relaxed border border-slate-200/90 dark:border-white/10 shadow-[0_12px_36px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.45)] transition-all">
-                              
-                              {/* Card Header */}
-                              <div className="flex items-center justify-between gap-2 mb-2.5 pb-2 border-b border-slate-100 dark:border-white/5">
-                                <span className="text-xs font-bold text-slate-900 dark:text-white tracking-tight">Maybank AI</span>
-                                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-                                  {msg.time || '10:25 AM'}
-                                </span>
-                              </div>
+              {/* Top Right Hardware Controls */}
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                
+                {/* Right Context & Suggestions Toggle Button */}
+                <button 
+                  onClick={() => {
+                    sounds.playGlassClick();
+                    setIsRightNavOpen(!isRightNavOpen);
+                  }}
+                  className={`p-2 rounded-xl border transition-all cursor-pointer active:scale-90 duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+                    isRightNavOpen 
+                      ? 'bg-amber-400/15 border-amber-400/40 text-amber-600 dark:text-amber-400 shadow-xs' 
+                      : 'bg-white/80 dark:bg-[#181B22] border-slate-200/70 dark:border-[#272B35] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#20242D]'
+                  }`}
+                  title={isRightNavOpen ? "Hide Context & Suggestions Panel" : "Show Context & Suggestions Panel"}
+                  aria-label="Toggle Context & Suggestions Panel"
+                >
+                  <PanelRight className="w-4 h-4" />
+                </button>
 
-                              {/* Rich Formatted Markdown Text with Horological Streaming Cursor */}
-                              <FormattedMessage 
-                                text={msg.text} 
-                                isStreaming={isStreaming && index === messages.length - 1} 
-                              />
+                {/* Google Gemini AI Live Engine Status Badge */}
+                <div 
+                  className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-400/10 border border-amber-400/25 text-amber-700 dark:text-amber-300 shadow-xs select-none"
+                  title="Google Gemini 2.5 Flash Live Engine Active"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-xs font-bold tracking-tight hidden lg:inline">Gemini 2.5 Flash</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                </div>
 
-                              {/* Interactive Financial Card Widget */}
-                              {msg.hasCardWidget && (
-                                <FinancialCardWidget onOpenCanvas={() => setIsCardDetailOpen(true)} />
-                              )}
+                {/* Mute/Sound Toggle Button */}
+                <button 
+                  onClick={() => {
+                    const next = !soundEnabled;
+                    setSoundEnabled(next);
+                    if (next) sounds.playCuteSmile();
+                  }}
+                  className="p-2 rounded-xl bg-white/80 dark:bg-[#181B22] border border-slate-200/70 dark:border-[#272B35] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#20242D] shadow-xs cursor-pointer active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                  title={soundEnabled ? "Mute Acoustic Feedback" : "Enable Acoustic Feedback"}
+                >
+                  {soundEnabled ? (
+                    <Volume2 className="w-4 h-4 text-sky-500" />
+                  ) : (
+                    <VolumeX className="w-4 h-4 text-slate-400" />
+                  )}
+                </button>
 
-                              {/* Apple Ghost Action Dock with 40px+ Kiosk Touch Ergonomics */}
-                              <div className="flex items-center gap-2 pt-3 mt-2 border-t border-slate-100 dark:border-white/5 text-slate-400">
-                                <button 
-                                  onClick={() => handleCopyText(msg.text, index)}
-                                  title="Copy response"
-                                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer min-h-[38px] touch-manipulation"
-                                >
-                                  {copiedIndex === index ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-                                  <span className="text-[12px] font-semibold">{copiedIndex === index ? 'Copied' : 'Copy'}</span>
-                                </button>
-                                
-                                <button 
-                                  onClick={() => handleSpeak(msg.text, index)}
-                                  title={speakingIndex === index ? "Stop audio" : "Listen to response"}
-                                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer min-h-[38px] touch-manipulation ${
-                                    speakingIndex === index 
-                                      ? 'bg-sky-500/15 text-sky-600 dark:text-sky-300 ring-1 ring-sky-400/30' 
-                                      : 'hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10'
-                                  }`}
-                                >
-                                  {speakingIndex === index ? (
-                                    <div className="flex items-center gap-0.5 h-3.5">
-                                      <span className="w-0.5 h-3 bg-sky-500 rounded-full animate-bounce" style={{ animationDuration: '0.6s' }} />
-                                      <span className="w-0.5 h-2 bg-sky-500 rounded-full animate-bounce" style={{ animationDuration: '0.8s', animationDelay: '0.15s' }} />
-                                      <span className="w-0.5 h-3.5 bg-sky-500 rounded-full animate-bounce" style={{ animationDuration: '0.7s', animationDelay: '0.3s' }} />
-                                    </div>
-                                  ) : (
-                                    <Volume2 className="w-4 h-4" />
-                                  )}
-                                  <span className="text-[12px] font-semibold">{speakingIndex === index ? 'Speaking...' : 'Listen'}</span>
-                                </button>
+                {/* MAS Session Privacy Lock Button */}
+                <button 
+                  onClick={() => {
+                    sounds.playGlassClick();
+                    setIsLocked(true);
+                  }}
+                  className="p-2 rounded-xl bg-white/80 dark:bg-[#181B22] border border-slate-200/70 dark:border-[#272B35] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#20242D] shadow-xs cursor-pointer group active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                  title="Lock Kiosk Session (MAS Compliance)"
+                >
+                  <Lock className="w-4 h-4 group-hover:text-amber-500 transition-colors" />
+                </button>
 
-                                {/* Inline Regenerate / Retry Pill for AI Message */}
-                                {index === messages.length - 1 && !isStreaming && !isThinking && (
-                                  <button 
-                                    onClick={handleRegenerateResponse}
-                                    title="Regenerate this response"
-                                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-500/10 active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer min-h-[38px] touch-manipulation"
-                                  >
-                                    <RotateCcw className="w-3.5 h-3.5" />
-                                    <span className="text-[12px] font-semibold">Retry</span>
-                                  </button>
-                                )}
+                {/* Theme Toggle Button */}
+                <button 
+                  onClick={toggleTheme}
+                  className="p-2 rounded-xl bg-white/80 dark:bg-[#181B22] border border-slate-200/70 dark:border-[#272B35] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#20242D] shadow-xs cursor-pointer active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                  title={theme === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
+                >
+                  {theme === 'light' ? (
+                    <Moon className="w-4 h-4 text-slate-600" />
+                  ) : (
+                    <Sun className="w-4 h-4 text-amber-400" />
+                  )}
+                </button>
 
-                                <button 
-                                  onClick={() => sounds.playGlassClick()}
-                                  title="Helpful"
-                                  className="p-2 rounded-xl hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer min-w-[38px] min-h-[38px] flex items-center justify-center touch-manipulation ml-auto"
-                                >
-                                  <ThumbsUp className="w-4 h-4" />
-                                </button>
-                              </div>
+                {/* Dark Wallpaper Motif Toggle (Obsidian Waves <-> Architectural Portal) */}
+                {theme === 'dark' && (
+                  <button 
+                    onClick={handleToggleWallpaper}
+                    className="p-2 rounded-xl bg-white/80 dark:bg-[#181B22] border border-slate-200/70 dark:border-[#272B35] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#20242D] shadow-xs cursor-pointer group active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                    title={`Backdrop Motif: ${darkWallpaper === 'waves' ? 'Obsidian Waves' : 'Architectural Arch'} (Click to switch)`}
+                    aria-label="Toggle Dark Wallpaper Backdrop"
+                  >
+                    <Sparkles className="w-4 h-4 text-amber-400 group-hover:rotate-12 transition-transform" />
+                  </button>
+                )}
 
-                            </div>
+                {/* User Profile Avatar */}
+                <div 
+                  onClick={() => sounds.playGlassClick()}
+                  className="w-8 h-8 rounded-xl bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-800 flex items-center justify-center font-bold text-xs shadow-xs border border-slate-700/50 cursor-pointer active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                  title="Branch Officer: Manikandan"
+                >
+                  M
+                </div>
 
-                            {/* Process Flow Card (if applicable) */}
-                            {msg.hasFlow && (
-                              <FlowCard onOpenCanvas={() => setIsCardDetailOpen(true)} />
-                            )}
+                {/* Session Logout Action Button */}
+                <button 
+                  onClick={handleLogout}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-semibold hover:bg-rose-100 dark:hover:bg-rose-500/20 cursor-pointer shadow-xs ml-1 active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                  title="Logout from Maybank Kiosk Session"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Exit</span>
+                </button>
 
-                          </div>
+              </div>
 
-                        </div>
-                      )}
-                    </div>
-                  ))}
+            </header>
 
-                  {/* Real-time AI Thinking Shimmer Indicator */}
-                  {isThinking && (
-                    <div className="flex items-start gap-4 w-full animate-in fade-in duration-300">
-                      <RobotAvatar isCurrent={true} size="lg" className="mt-0.5" />
-                      <div className="bg-white/85 dark:bg-[#131722]/85 backdrop-blur-2xl text-slate-800 dark:text-slate-100 px-5 py-4 rounded-3xl rounded-tl-sm border border-white/80 dark:border-white/10 shadow-sm flex items-center gap-3">
-                        <div className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-sky-500 animate-bounce" style={{ animationDuration: '0.6s' }} />
-                          <span className="w-2 h-2 rounded-full bg-sky-500 animate-bounce" style={{ animationDuration: '0.6s', animationDelay: '0.15s' }} />
-                          <span className="w-2 h-2 rounded-full bg-sky-500 animate-bounce" style={{ animationDuration: '0.6s', animationDelay: '0.3s' }} />
-                        </div>
-                        <span className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-tight">
-                          Maybank AI is querying Singapore banking telemetry & advisory guidelines...
+        {/* Conversation Canvas & Adaptive iPhone Simulator */}
+        {(() => {
+          const renderChatMessages = (isCompact = false) => (
+            <>
+              {/* Empty Greeting State */}
+              {messages.length === 0 && (
+                <div className="flex flex-col items-center justify-center my-auto py-8 animate-in fade-in duration-500 text-center">
+                  
+                  {/* 🤖 Apple VisionOS Staged Robot Avatar Pedestal */}
+                  <div 
+                    onClick={() => sounds.playCuteSmile()}
+                    className="group/avatar relative mb-6 cursor-pointer transform hover:scale-105 active:scale-95 transition-all duration-300"
+                    title="Maybank AI Companion (Click to interact)"
+                  >
+                    {/* Frosted Multi-Tone VisionOS Ambient Aura */}
+                    <div className="absolute -inset-4 rounded-[40px] bg-gradient-to-tr from-sky-400/20 via-blue-500/15 to-amber-400/20 blur-xl opacity-80 group-hover/avatar:opacity-100 transition-opacity duration-500 animate-pulse" />
+                    
+                    {/* Frosted Ceramic Glass Pedestal Capsule */}
+                    <div className="relative flex flex-col items-center p-6 rounded-[36px] bg-gradient-to-b from-white/95 to-white/70 dark:from-[#181B22]/95 dark:to-[#181B22]/70 backdrop-blur-2xl border border-white/90 dark:border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)]">
+                      <RobotAvatar isCurrent={true} size={isCompact ? "lg" : "xl"} />
+                      
+                      {/* Floating Status Pill */}
+                      <div className="mt-3.5 px-3 py-1 rounded-full bg-slate-100/90 dark:bg-white/10 border border-slate-200/80 dark:border-white/10 flex items-center gap-1.5 shadow-xs">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200 tracking-wider uppercase">
+                          AI Online • Ready
                         </span>
                       </div>
                     </div>
-                  )}
+                  </div>
 
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="text-center">
+                      <span className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-400 font-bold">
+                        {getSingaporeGreeting()}
+                      </span>
+                      <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                        Hello, <span className="text-blue-600 dark:text-sky-400 font-black">Manikandan.</span>
+                      </h2>
+                      <p className="text-lg sm:text-xl md:text-2xl font-normal text-slate-400 dark:text-slate-500 mt-1">
+                        What can I help you with today?
+                      </p>
+                    </div>
+                  </div>
+
+                  <StarterCards onSelectPrompt={handleSendMessage} compact={isCompact} />
                 </div>
-              );
-            })()}
+              )}
 
-          </div>
+              {/* Conversation Messages */}
+              {messages.length > 0 && (() => {
+                const lastAiIndex = isThinking ? -1 : messages.map(m => m.sender).lastIndexOf('ai');
+                return (
+                  <div className="space-y-6 pt-2 w-full">
+                    {messages.map((msg, index) => (
+                      <div key={index}>
+                        {msg.sender === 'user' ? (
+                          /* Apple Royal Obsidian User Bubble */
+                          <div className="flex justify-end items-start gap-3 max-w-2xl ml-auto group">
+                            <div className="flex flex-col items-end">
+                              {/* Attached Image Glass Thumbnail */}
+                              {msg.image && (
+                                <div 
+                                  onClick={() => setSelectedPreviewImage(msg.image || null)}
+                                  className="mb-2 max-w-xs sm:max-w-sm rounded-2xl overflow-hidden border border-white/20 shadow-md cursor-pointer hover:opacity-95 transition-opacity group/img relative bg-slate-950/20 backdrop-blur-md"
+                                  title="Click to expand full image"
+                                >
+                                  <img 
+                                    src={msg.image} 
+                                    alt="Attached document or screenshot" 
+                                    className="w-full max-h-60 object-cover rounded-2xl" 
+                                  />
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold backdrop-blur-xs gap-1.5">
+                                    <span>Tap to zoom</span>
+                                  </div>
+                                </div>
+                              )}
 
-          <div ref={messagesEndRef} />
-        </div>
+                              {/* Text Message Bubble with Apple Spring & Micro-interactivity */}
+                              <div className="px-5 py-3.5 rounded-3xl rounded-tr-sm bg-gradient-to-r from-slate-900 to-[#12151D] dark:from-[#1E222D] dark:to-[#171A23] text-white border border-white/10 shadow-[0_12px_28px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.15)] text-sm leading-relaxed max-w-xl break-words group/bubble relative select-text transition-all duration-300">
+                                <FormattedMessage text={msg.text} />
+                              </div>
 
-        {/* Floating Bottom Composer (Wide Floating Pill) */}
-        <Composer 
-          onSendMessage={handleSendMessage}
-          onOpenVoice={() => setIsVoiceOpen(true)}
-          isRightNavOpen={isRightNavOpen}
-          onToggleRightNav={() => {
-            sounds.playGlassClick();
-            setIsRightNavOpen(prev => !prev);
-          }}
-          externalInsertedText={externalInsertedText}
-          activeContextDoc={activeContextDoc}
-          onRemoveContextDoc={() => setActiveContextDoc(null)}
-          isStreaming={isStreaming}
-          onStopGeneration={handleStopGeneration}
-        />
+                              {/* Timestamp and Delivery Status */}
+                              <div className="flex items-center gap-1.5 mt-1 mr-1 text-[11px] text-slate-400 font-medium">
+                                <span>{msg.time}</span>
+                                {copiedIndex === index ? (
+                                  <span className="text-emerald-500 font-semibold flex items-center gap-0.5">
+                                    <Check className="w-3 h-3" /> Copied
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={() => handleCopyText(msg.text, index)}
+                                    className="opacity-0 group-hover:opacity-100 hover:text-slate-600 dark:hover:text-slate-200 transition-opacity ml-1 cursor-pointer p-0.5"
+                                    title="Copy message"
+                                  >
+                                    <Copy className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* User Avatar Badge */}
+                            <div className="w-8 h-8 rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 flex items-center justify-center font-bold text-xs shadow-md border border-white/20 flex-shrink-0 mt-1">
+                              M
+                            </div>
+                          </div>
+                        ) : (
+                          /* 🤖 Apple Spatial VisionOS Sovereign AI Response Bubble */
+                          <div className="flex items-start gap-3.5 max-w-3xl mr-auto group">
+                            
+                            {/* Staged Sovereign Robot Avatar Pod */}
+                            <div 
+                              onClick={() => sounds.playCuteSmile()}
+                              className="relative cursor-pointer mt-1 flex-shrink-0 group/pod"
+                              title="Maybank AI (Click for acoustic smile)"
+                            >
+                              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-tr from-amber-400/30 to-sky-400/20 blur-md opacity-0 group-hover/pod:opacity-100 transition-opacity duration-300" />
+                              <RobotAvatar isCurrent={index === lastAiIndex} size="md" />
+                            </div>
+
+                            <div className="flex flex-col items-start min-w-0 flex-1 space-y-3">
+                              
+                              {/* Main AI Frosted Ceramic Card */}
+                              <div className="w-full px-6 py-5 rounded-3xl rounded-tl-sm bg-white/90 dark:bg-[#12151D]/90 backdrop-blur-3xl border border-white/80 dark:border-white/10 shadow-[0_12px_32px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[0_16px_36px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] text-slate-800 dark:text-slate-100 text-sm leading-relaxed transition-all duration-300">
+                                
+                                {/* AI Author Heading with Model Badge */}
+                                <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-slate-100 dark:border-white/5">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-xs text-slate-900 dark:text-white tracking-tight">
+                                      Maybank AI
+                                    </span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/20">
+                                      Sovereign Kiosk
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 font-medium">
+                                    {msg.time}
+                                  </span>
+                                </div>
+
+                                {/* Formatted Response Body */}
+                                <div className="text-slate-700 dark:text-slate-200 select-text">
+                                  {msg.text ? (
+                                    <FormattedMessage text={msg.text} isStreaming={isStreaming && index === messages.length - 1} />
+                                  ) : isThinking ? (
+                                    <div className="flex items-center gap-2 py-1 text-slate-400 italic text-xs">
+                                      <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
+                                      <span>Formulating Singapore wealth advisory response...</span>
+                                    </div>
+                                  ) : null}
+                                </div>
+
+                                {/* Interactive Horizon Visa Widget (if prompt mentions cards/privileges) */}
+                                {msg.hasCardWidget && (
+                                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-white/10">
+                                    <FinancialCardWidget onOpenCanvas={() => setIsCardDetailOpen(true)} />
+                                  </div>
+                                )}
+
+                                {/* AI Action Bar: Copy, Listen, Retry, Feedback */}
+                                <div className="flex items-center gap-1 mt-4 pt-3 border-t border-slate-100 dark:border-white/5 text-slate-400">
+                                  <button 
+                                    onClick={() => handleCopyText(msg.text, index)}
+                                    title="Copy response"
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer min-h-[38px] touch-manipulation"
+                                  >
+                                    {copiedIndex === index ? (
+                                      <>
+                                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                        <span className="text-emerald-500 font-semibold text-[12px]">Copied</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-3.5 h-3.5" />
+                                        <span className="text-[12px] font-medium">Copy</span>
+                                      </>
+                                    )}
+                                  </button>
+
+                                  <button 
+                                    onClick={() => handleSpeak(msg.text, index)}
+                                    title={speakingIndex === index ? "Stop voice playback" : "Listen to response"}
+                                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer min-h-[38px] touch-manipulation ${
+                                      speakingIndex === index 
+                                        ? 'text-sky-500 bg-sky-500/10 font-semibold' 
+                                        : 'hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10'
+                                    }`}
+                                  >
+                                    <Volume2 className={`w-3.5 h-3.5 ${speakingIndex === index ? 'animate-bounce' : ''}`} />
+                                    <span className="text-[12px] font-medium">
+                                      {speakingIndex === index ? 'Speaking...' : 'Listen'}
+                                    </span>
+                                  </button>
+
+                                  {/* Inline Regenerate / Retry Pill for AI Message */}
+                                  {index === messages.length - 1 && !isStreaming && !isThinking && (
+                                    <button 
+                                      onClick={handleRegenerateResponse}
+                                      title="Regenerate this response"
+                                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-500/10 active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer min-h-[38px] touch-manipulation"
+                                    >
+                                      <RotateCcw className="w-3.5 h-3.5" />
+                                      <span className="text-[12px] font-semibold">Retry</span>
+                                    </button>
+                                  )}
+
+                                  <button 
+                                    onClick={() => sounds.playGlassClick()}
+                                    title="Helpful"
+                                    className="p-2 rounded-xl hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer min-w-[38px] min-h-[38px] flex items-center justify-center touch-manipulation ml-auto"
+                                  >
+                                    <ThumbsUp className="w-4 h-4" />
+                                  </button>
+                                </div>
+
+                              </div>
+
+                              {/* Process Flow Card (if applicable) */}
+                              {msg.hasFlow && (
+                                <FlowCard onOpenCanvas={() => setIsCardDetailOpen(true)} />
+                              )}
+
+                            </div>
+
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Real-time AI Thinking Shimmer Indicator */}
+                    {isThinking && (
+                      <div className="flex items-start gap-4 w-full animate-in fade-in duration-300">
+                        <RobotAvatar isCurrent={true} size="lg" className="mt-0.5" />
+                        <div className="bg-white/85 dark:bg-[#131722]/85 backdrop-blur-2xl text-slate-800 dark:text-slate-100 px-5 py-4 rounded-3xl rounded-tl-sm border border-white/80 dark:border-white/10 shadow-sm flex items-center gap-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-sky-500 animate-bounce" style={{ animationDuration: '0.6s' }} />
+                            <span className="w-2 h-2 rounded-full bg-sky-500 animate-bounce" style={{ animationDuration: '0.6s', animationDelay: '0.15s' }} />
+                            <span className="w-2 h-2 rounded-full bg-sky-500 animate-bounce" style={{ animationDuration: '0.6s', animationDelay: '0.3s' }} />
+                          </div>
+                          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-tight">
+                            Maybank AI is querying Singapore banking telemetry & advisory guidelines...
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                );
+              })()}
+            </>
+          );
+
+          if (viewMode === 'mobile-preview') {
+            return (
+              <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-4 overflow-hidden relative animate-in zoom-in-95 duration-300">
+                {/* VisionOS Ambient Glow Aura */}
+                <div className="absolute w-[440px] h-[780px] rounded-full bg-gradient-to-tr from-amber-400/20 via-sky-400/20 to-purple-400/15 blur-3xl pointer-events-none" />
+
+                {/* iPhone 16 Pro Titanium Hardware Chassis */}
+                <div className="relative w-[385px] h-[820px] max-h-[92vh] bg-black rounded-[54px] p-2.5 ring-[10px] ring-[#1E222B] shadow-[0_30px_90px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.15)] flex flex-col overflow-hidden gpu-layer border border-white/20">
+                  
+                  {/* Dynamic Island Cutout */}
+                  <div className="absolute top-3.5 left-1/2 -translate-x-1/2 z-50 w-28 h-7 bg-black rounded-full flex items-center justify-between px-3 shadow-inner">
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#151515] ring-1 ring-white/10" />
+                    <div className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-[9px] font-bold text-white/80 tracking-widest">MAS</span>
+                    </div>
+                  </div>
+
+                  {/* Inner Phone Screen */}
+                  <div className="relative flex-1 rounded-[44px] overflow-hidden flex flex-col justify-between bg-[#F5F6F8] dark:bg-[#08090C] text-slate-900 dark:text-white pt-9 pb-1">
+                    
+                    {/* Embedded Mobile Header */}
+                    <MobileHeader 
+                      embedded={true}
+                      theme={theme}
+                      onToggleTheme={toggleTheme}
+                      darkWallpaper={darkWallpaper}
+                      onToggleWallpaper={handleToggleWallpaper}
+                      onNewChat={handleNewChat}
+                      activeChatTitle={chatThreads.find(t => t.id === activeSidebarItem)?.title || 'Maybank AI'}
+                      onOpenSidebar={() => setIsMobileSidebarOpen(true)}
+                    />
+
+                    {/* Chat Conversation Scroll Area */}
+                    <div className="flex-1 overflow-y-auto px-3.5 py-2 custom-scrollbar ios-scroll">
+                      <div className="max-w-md mx-auto min-h-full flex flex-col justify-end">
+                        {renderChatMessages(true)}
+                      </div>
+                      <div ref={messagesEndRef} />
+                    </div>
+
+                    {/* Composer */}
+                    <Composer 
+                      onSendMessage={handleSendMessage}
+                      onOpenVoice={() => setIsVoiceOpen(true)}
+                      isRightNavOpen={false}
+                      onToggleRightNav={() => {
+                        sounds.playGlassClick();
+                        setIsRightNavOpen(prev => !prev);
+                      }}
+                      externalInsertedText={externalInsertedText}
+                      activeContextDoc={activeContextDoc}
+                      onRemoveContextDoc={() => setActiveContextDoc(null)}
+                      isStreaming={isStreaming}
+                      onStopGeneration={handleStopGeneration}
+                    />
+
+                    {/* Mobile Tab Bar inside phone frame */}
+                    <MobileTabBar 
+                      embedded={true}
+                      activeTab={activeMobileTab}
+                      onSelectTab={(tab) => {
+                        setActiveMobileTab(tab);
+                        if (tab === 'chat') {
+                          setIsMobileSidebarOpen(false);
+                          setIsRightNavOpen(false);
+                        }
+                      }}
+                      onOpenSidebar={() => {
+                        setIsMobileSidebarOpen(true);
+                        setIsRightNavOpen(false);
+                      }}
+                      onOpenExplore={() => {
+                        setIsRightNavOpen(true);
+                        setIsMobileSidebarOpen(false);
+                      }}
+                      onLockSession={() => setIsLocked(true)}
+                    />
+                  </div>
+
+                  {/* Home Indicator */}
+                  <div className="w-32 h-1 bg-white/40 rounded-full mx-auto mt-2 shrink-0" />
+                </div>
+              </div>
+            );
+          }
+
+          /* Full-Bleed Desktop Workstation Canvas */
+          return (
+            <>
+              <div className="flex-1 overflow-y-auto px-4 md:px-8 py-2 custom-scrollbar">
+                <div className="max-w-4xl mx-auto min-h-full flex flex-col justify-end">
+                  {renderChatMessages(false)}
+                </div>
+                <div ref={messagesEndRef} />
+              </div>
+
+              <Composer 
+                onSendMessage={handleSendMessage}
+                onOpenVoice={() => setIsVoiceOpen(true)}
+                isRightNavOpen={isRightNavOpen}
+                onToggleRightNav={() => {
+                  sounds.playGlassClick();
+                  setIsRightNavOpen(prev => !prev);
+                }}
+                externalInsertedText={externalInsertedText}
+                activeContextDoc={activeContextDoc}
+                onRemoveContextDoc={() => setActiveContextDoc(null)}
+                isStreaming={isStreaming}
+                onStopGeneration={handleStopGeneration}
+              />
+            </>
+          );
+        })()}
 
         {/* Voice Overlay */}
         <VoiceOverlay 

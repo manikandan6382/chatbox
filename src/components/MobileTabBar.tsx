@@ -10,6 +10,7 @@ interface MobileTabBarProps {
   onOpenSidebar: () => void;
   onOpenExplore: () => void;
   onLockSession: () => void;
+  embedded?: boolean;
 }
 
 export const MobileTabBar: React.FC<MobileTabBarProps> = ({
@@ -17,7 +18,8 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
   onSelectTab,
   onOpenSidebar,
   onOpenExplore,
-  onLockSession
+  onLockSession,
+  embedded = false
 }) => {
   const handleTabPress = (tab: MobileTab) => {
     sounds.playGlassClick();
@@ -34,7 +36,11 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
 
   return (
     <nav 
-      className="lg:hidden fixed bottom-0 inset-x-0 z-40 gpu-layer bg-white/85 dark:bg-[#0A0D14]/90 backdrop-blur-3xl border-t border-white/80 dark:border-white/10 shadow-[0_-10px_35px_rgba(0,0,0,0.1)] dark:shadow-[0_-12px_45px_rgba(0,0,0,0.6)] safe-bottom transition-colors duration-300 select-none"
+      className={`${
+        embedded 
+          ? 'shrink-0 z-30 bg-white/90 dark:bg-[#0A0D14]/90 backdrop-blur-3xl border-t border-white/80 dark:border-white/10 shadow-lg select-none pb-2 pt-1' 
+          : 'md:hidden fixed bottom-0 inset-x-0 z-40 gpu-layer bg-white/85 dark:bg-[#0A0D14]/90 backdrop-blur-3xl border-t border-white/80 dark:border-white/10 shadow-[0_-10px_35px_rgba(0,0,0,0.1)] dark:shadow-[0_-12px_45px_rgba(0,0,0,0.6)] safe-bottom transition-colors duration-300 select-none'
+      }`}
       aria-label="Mobile Application Navigation"
     >
       <div className="flex items-center justify-around px-2 pt-2 pb-1.5 max-w-md mx-auto">
