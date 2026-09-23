@@ -1,12 +1,10 @@
 import React from 'react';
-import { Sparkles, Moon, Sun, Plus, ShieldCheck } from 'lucide-react';
+import { Moon, Sun, Plus, ShieldCheck, Menu } from 'lucide-react';
 import { sounds } from '../utils/audio';
 
 interface MobileHeaderProps {
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
-  darkWallpaper?: 'waves' | 'arch';
-  onToggleWallpaper?: () => void;
   onNewChat: () => void;
   activeChatTitle?: string;
   onOpenSidebar: () => void;
@@ -15,44 +13,56 @@ interface MobileHeaderProps {
 export const MobileHeader: React.FC<MobileHeaderProps> = ({
   theme,
   onToggleTheme,
-  darkWallpaper = 'waves',
-  onToggleWallpaper,
   onNewChat,
   activeChatTitle = 'Maybank AI Assistant',
   onOpenSidebar
 }) => {
+  const handleOpenDrawer = () => {
+    (document.activeElement as HTMLElement)?.blur();
+    sounds.playGlassClick();
+    onOpenSidebar();
+  };
+
   return (
     <header className="lg:hidden sticky top-0 inset-x-0 z-30 gpu-layer flex flex-col bg-white/80 dark:bg-[#080B12]/85 backdrop-blur-2xl border-b border-slate-200/80 dark:border-white/10 shadow-xs safe-top transition-colors duration-300 select-none">
       <div className="flex items-center justify-between px-3.5 py-2.5 gap-2">
         
-        {/* Left: Brand Crest & Thread Indicator (Tapping opens chats drawer) */}
-        <button
-          onClick={() => {
-            sounds.playGlassClick();
-            onOpenSidebar();
-          }}
-          className="flex items-center gap-2.5 min-w-0 text-left cursor-pointer ios-press group"
-          title="Open Conversation History"
-        >
-          <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-1 ring-slate-200/80 dark:ring-white/20 shadow-xs">
-            <img 
-              src="/assets/maybank-tiger-circle.png" 
-              alt="Maybank Tiger Crest" 
-              className="w-full h-full object-cover" 
-            />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold text-slate-900 dark:text-white tracking-tight truncate">
-                Maybank AI
-              </span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
+        {/* Left: ChatGPT-Style Hamburger Menu + Brand Crest */}
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            onClick={handleOpenDrawer}
+            className="p-2 -ml-1 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 active:scale-90 transition-all ios-press cursor-pointer flex-shrink-0"
+            title="Open Conversations Drawer"
+            aria-label="Open Navigation Menu"
+          >
+            <Menu className="w-5 h-5 stroke-[2.2]" />
+          </button>
+
+          <button
+            onClick={handleOpenDrawer}
+            className="flex items-center gap-2 min-w-0 text-left cursor-pointer ios-press group"
+            title="Open Conversation History"
+          >
+            <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 ring-1 ring-slate-200/80 dark:ring-white/20 shadow-xs">
+              <img 
+                src="/assets/maybank-tiger-circle.png" 
+                alt="Maybank Tiger Crest" 
+                className="w-full h-full object-cover" 
+              />
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[140px] sm:max-w-[200px] font-medium leading-none mt-0.5">
-              {activeChatTitle}
-            </p>
-          </div>
-        </button>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-slate-900 dark:text-white tracking-tight truncate">
+                  Maybank AI
+                </span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[130px] sm:max-w-[200px] font-medium leading-none mt-0.5">
+                {activeChatTitle}
+              </p>
+            </div>
+          </button>
+        </div>
 
         {/* Center / Right: Apple Dynamic Island Capsule & Fast Actions */}
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -62,18 +72,6 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
             <ShieldCheck className="w-3 h-3 text-emerald-500" />
             <span>MAS TRM</span>
           </div>
-
-          {/* Dark Wallpaper Motif Toggle (Waves <-> Arch) */}
-          {theme === 'dark' && onToggleWallpaper && (
-            <button
-              onClick={onToggleWallpaper}
-              className="p-2 rounded-full text-amber-400 hover:bg-white/10 active:scale-90 transition-all ios-press cursor-pointer"
-              title={`Motif: ${darkWallpaper === 'waves' ? 'Silk Waves' : 'Architectural Arch'}`}
-              aria-label="Toggle Dark Wallpaper"
-            >
-              <Sparkles className="w-4 h-4" />
-            </button>
-          )}
 
           {/* Theme Switcher */}
           <button

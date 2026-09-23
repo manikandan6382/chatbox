@@ -44,7 +44,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({ onSelectDoc, onSelectToo
         {/* Background Architectural Arch Graphic */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <img 
-            src="/assets/ceramic-arch.png" 
+            src="/assets/arch.png" 
             alt="Maybank Premier Arch" 
             className="w-full h-full object-cover object-center opacity-85 transition-transform duration-500 group-hover:scale-105 block dark:hidden" 
           />
@@ -162,7 +162,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({ onSelectDoc, onSelectToo
       <div className="relative rounded-2xl overflow-hidden bg-slate-100 dark:bg-[#14161B] p-5 shadow-sm border border-slate-200/80 dark:border-[#242832]">
         <div className="absolute inset-0 pointer-events-none opacity-50 dark:opacity-60 overflow-hidden">
           <img 
-            src="/assets/ceramic-silk-2.png" 
+            src="/assets/ceramic-silk.png" 
             alt="Silk Wave Light" 
             className="w-full h-full object-cover block dark:hidden" 
           />

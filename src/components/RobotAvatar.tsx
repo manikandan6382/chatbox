@@ -3,7 +3,7 @@ import { sounds } from '../utils/audio';
 
 interface RobotAvatarProps {
   isCurrent?: boolean;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
   className?: string;
   onWinkComplete?: () => void;
 }
@@ -17,20 +17,24 @@ export const RobotAvatar: React.FC<RobotAvatarProps> = ({
   const avatarRef = useRef<HTMLDivElement>(null);
   const [lookOffset, setLookOffset] = useState({ x: 0, y: 0, tiltX: 0, tiltY: 0, tiltZ: 0 });
   const [isBlinking, setIsBlinking] = useState(false);
-  const [isLeftWinking, setIsLeftWinking] = useState(false);
+  const [isRightWinking, setIsRightWinking] = useState(false);
   const [isSmiling, setIsSmiling] = useState(false);
   const [clickTiltZ, setClickTiltZ] = useState(0);
   const [clickNodY, setClickNodY] = useState(0);
   const lastActiveTimestamp = useRef<number>(Date.now());
-  const lastWinkTimestamp = useRef<number>(Date.now());
   const smileTimeoutRef = useRef<number | null>(null);
+
+  // Each avatar instance gets a unique random initial delay (2s to 9s) so multiple avatars never wink at the same time
+  const initialWinkOffset = useRef<number>(Math.floor(Math.random() * 7000) + 2000);
 
   // Proportioned size mapping with minimum pixel constraints to prevent flex collapse
   const sizeClasses = {
     sm: 'w-10 h-10 min-w-[40px] min-h-[40px]',
     md: 'w-12 h-12 min-w-[48px] min-h-[48px]',
     lg: 'w-14 h-14 md:w-16 md:h-16 min-w-[56px] min-h-[56px]',
-    xl: 'w-24 h-24 min-w-[96px] min-h-[96px]'
+    xl: 'w-24 h-24 min-w-[96px] min-h-[96px]',
+    '2xl': 'w-36 h-36 md:w-44 md:h-44 min-w-[144px] min-h-[144px]',
+    '3xl': 'w-48 h-48 md:w-56 md:h-56 min-w-[192px] min-h-[192px]'
   };
 
   // Interactive Click Handler: Cheerful chime, playful head tilt, and smiling expression
@@ -59,51 +63,61 @@ export const RobotAvatar: React.FC<RobotAvatarProps> = ({
     }, 2000);
   };
 
-  // 1. Autonomous Organic Blinking & Infrequent Spontaneous Left-Eye Winking
+  // 1. Autonomous Right-Eye Wink (~10s cycle, individually desynchronized per avatar instance)
   useEffect(() => {
-    let timerId: number;
+    let winkTimeout: number;
+    let winkCloseTimeout: number;
 
-    const runLifeCycle = () => {
-      // Natural blink rhythm every 3.8 to 6.8 seconds
-      const delay = Math.random() * 3000 + 3800;
+    const executeWink = () => {
+      if (!isSmiling) {
+        setIsRightWinking(true);
+        winkCloseTimeout = window.setTimeout(() => {
+          setIsRightWinking(false);
+          if (onWinkComplete) onWinkComplete();
+        }, 420);
+      }
+      // Schedule next wink in ~10s (approx 9.5s - 10.8s for natural organic feel)
+      const nextInterval = 9500 + Math.random() * 1300;
+      winkTimeout = window.setTimeout(executeWink, nextInterval);
+    };
 
-      timerId = window.setTimeout(() => {
-        if (isSmiling) {
-          runLifeCycle();
-          return;
-        }
+    // First wink uses the per-instance staggered offset (each avatar winks at different times)
+    winkTimeout = window.setTimeout(executeWink, initialWinkOffset.current);
 
-        const now = Date.now();
-        const timeSinceLastWink = now - lastWinkTimestamp.current;
-        // Spontaneous Left-Eye Wink: Rare and random with a strict 25s cooldown
-        // so it never repeats closely ("not again again")
-        const shouldWink = timeSinceLastWink > 25000 && Math.random() < 0.25;
+    return () => {
+      clearTimeout(winkTimeout);
+      clearTimeout(winkCloseTimeout);
+    };
+  }, [isSmiling, onWinkComplete]);
 
-        if (shouldWink && !isLeftWinking) {
-          lastWinkTimestamp.current = now;
-          setIsLeftWinking(true);
-          setTimeout(() => {
-            setIsLeftWinking(false);
-            if (onWinkComplete) onWinkComplete();
-            runLifeCycle();
-          }, 450);
-        } else {
-          // Standard natural double-eye micro-blink (110ms)
+  // 2. Autonomous Natural Double-Eye Micro-Blink (every 3.2s to 5.2s)
+  useEffect(() => {
+    let blinkTimeout: number;
+    let blinkResetTimeout: number;
+
+    const scheduleNextBlink = () => {
+      const delay = 3200 + Math.random() * 2000;
+      blinkTimeout = window.setTimeout(() => {
+        if (!isRightWinking && !isSmiling) {
           setIsBlinking(true);
-          setTimeout(() => {
+          blinkResetTimeout = window.setTimeout(() => {
             setIsBlinking(false);
-            runLifeCycle();
+            scheduleNextBlink();
           }, 110);
+        } else {
+          scheduleNextBlink();
         }
       }, delay);
     };
 
-    runLifeCycle();
+    const initialBlinkDelay = Math.random() * 2500 + 1000;
+    blinkTimeout = window.setTimeout(scheduleNextBlink, initialBlinkDelay);
 
     return () => {
-      clearTimeout(timerId);
+      clearTimeout(blinkTimeout);
+      clearTimeout(blinkResetTimeout);
     };
-  }, [isLeftWinking, isSmiling, onWinkComplete]);
+  }, [isRightWinking, isSmiling]);
 
   // 2. 3D Cursor & Pointer Tracking + Head Tilt Engine
   useEffect(() => {
@@ -128,7 +142,7 @@ export const RobotAvatar: React.FC<RobotAvatarProps> = ({
         const deltaY = clientY - avatarCenterY;
         const distance = Math.hypot(deltaX, deltaY);
 
-        const maxOffset = size === 'xl' ? 6 : size === 'lg' ? 4.5 : 3;
+        const maxOffset = size === '3xl' ? 10 : size === '2xl' ? 8 : size === 'xl' ? 6 : size === 'lg' ? 4.5 : 3;
         const reach = Math.min(window.innerWidth, window.innerHeight) * 0.45;
         const travelRatio = Math.min(distance / reach, 1);
         const angle = Math.atan2(deltaY, deltaX);
@@ -165,7 +179,7 @@ export const RobotAvatar: React.FC<RobotAvatarProps> = ({
     };
 
     idleIntervalId = window.setInterval(() => {
-      if (Date.now() - lastActiveTimestamp.current > 2800 && !isLeftWinking && !isBlinking && !isSmiling) {
+      if (Date.now() - lastActiveTimestamp.current > 2800 && !isRightWinking && !isBlinking && !isSmiling) {
         const randomGlances = [
           { x: 0, y: 0, tiltX: 0, tiltY: 0, tiltZ: 0 },
           { x: -1.6, y: 0.8, tiltX: -1.8, tiltY: 0.8, tiltZ: -0.6 },
@@ -191,9 +205,9 @@ export const RobotAvatar: React.FC<RobotAvatarProps> = ({
       cancelAnimationFrame(animationFrameId);
       clearInterval(idleIntervalId);
     };
-  }, [isCurrent, size, isLeftWinking, isBlinking, isSmiling]);
+  }, [isCurrent, size, isRightWinking, isBlinking, isSmiling]);
 
-  const showLeftWink = isLeftWinking;
+  const showRightWink = isRightWinking;
   const showBothHappyEyes = isSmiling;
 
   return (
@@ -252,7 +266,7 @@ export const RobotAvatar: React.FC<RobotAvatarProps> = ({
             }}
           >
             {/* -------------------- LEFT EYE -------------------- */}
-            {showBothHappyEyes || showLeftWink ? (
+            {showBothHappyEyes ? (
               /* Beautiful SVG Smiling Happy Eyelid Arc */
               <div className="relative flex items-center justify-center w-[26%] h-[75%] animate-in zoom-in-75 duration-150">
                 <svg viewBox="0 0 20 16" className="w-full h-full text-cyan-300 drop-shadow-[0_0_8px_#38BDF8]">
@@ -287,7 +301,7 @@ export const RobotAvatar: React.FC<RobotAvatarProps> = ({
             )}
 
             {/* -------------------- RIGHT EYE -------------------- */}
-            {showBothHappyEyes ? (
+            {showBothHappyEyes || showRightWink ? (
               /* Beautiful SVG Smiling Happy Eyelid Arc */
               <div className="relative flex items-center justify-center w-[26%] h-[75%] animate-in zoom-in-75 duration-150">
                 <svg viewBox="0 0 20 16" className="w-full h-full text-cyan-300 drop-shadow-[0_0_8px_#38BDF8]">

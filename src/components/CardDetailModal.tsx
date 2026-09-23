@@ -21,9 +21,9 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({ isOpen, onClos
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                Maybank Horizon Visa Signature
+                Maybank SaveUp Account
               </h3>
-              <p className="text-[11px] text-slate-400">Singapore Tier-1 Privileges</p>
+              <p className="text-[11px] text-slate-400">High-Yield Retail & Wealth Privileges</p>
             </div>
           </div>
           <button 
@@ -41,7 +41,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({ isOpen, onClos
         <div className="flex justify-center py-1">
           <img 
             src="/assets/maybank-horizon-card.svg" 
-            alt="Maybank Horizon Card" 
+            alt="Maybank SaveUp Debit" 
             className="w-72 h-auto rounded-xl shadow-lg border border-slate-700/20" 
           />
         </div>
@@ -49,26 +49,26 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({ isOpen, onClos
         {/* Key Privileges List */}
         <div className="space-y-2.5 text-xs">
           <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-[#20242D] border border-slate-100 dark:border-slate-700/60">
-            <Plane className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+            <Award className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
             <div>
-              <span className="font-bold text-slate-800 dark:text-slate-200 block">3.2 Air Miles per S$1</span>
-              <span className="text-slate-500 dark:text-slate-400">Valid on overseas spending, air tickets, travel bookings, and weekend dining.</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200 block">Up to 3.00% p.a. Interest Yield</span>
+              <span className="text-slate-500 dark:text-slate-400">Earn bonus interest tiers by pairing savings with salary crediting, bill payments, and debit card spend.</span>
             </div>
           </div>
 
           <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-[#20242D] border border-slate-100 dark:border-slate-700/60">
-            <Shield className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+            <Shield className="w-4 h-4 text-sky-500 flex-shrink-0 mt-0.5" />
             <div>
-              <span className="font-bold text-slate-800 dark:text-slate-200 block">S$1,000,000 Travel Protection</span>
-              <span className="text-slate-500 dark:text-slate-400">Automatic complimentary medical emergency & travel inconvenience insurance coverage.</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200 block">PIDM Insured up to RM250,000</span>
+              <span className="text-slate-500 dark:text-slate-400">Full capital guarantee and statutory deposit protection by Perbadanan Insurans Deposit Malaysia.</span>
             </div>
           </div>
 
           <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-[#20242D] border border-slate-100 dark:border-slate-700/60">
-            <CheckCircle className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+            <CheckCircle className="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5" />
             <div>
-              <span className="font-bold text-slate-800 dark:text-slate-200 block">Complimentary Changi Airport Lounges</span>
-              <span className="text-slate-500 dark:text-slate-400">3 free visits per calendar year at Ambassador Transit and Plaza Premium lounges.</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200 block">Instant 100% Digital Onboarding via MAE</span>
+              <span className="text-slate-500 dark:text-slate-400">Complete biometric e-KYC in under 10 minutes from your smartphone with zero branch visits.</span>
             </div>
           </div>
         </div>

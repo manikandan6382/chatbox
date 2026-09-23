@@ -3,22 +3,22 @@ import { Sidebar } from './components/Sidebar';
 import { StarterCards } from './components/StarterCards';
 import { FlowCard } from './components/FlowCard';
 import { FinancialCardWidget } from './components/FinancialCardWidget';
-import { KioskPrivacyCurtain } from './components/KioskPrivacyCurtain';
 import { Composer } from './components/Composer';
 import { VoiceOverlay } from './components/VoiceOverlay';
 import { CardDetailModal } from './components/CardDetailModal';
 import { RobotAvatar } from './components/RobotAvatar';
-import { LoginScreen } from './components/LoginScreen';
+import { UserAvatar } from './components/UserAvatar';
 import { RightNavigation } from './components/RightNavigation';
 import { MobileHeader } from './components/MobileHeader';
-import { MobileTabBar, MobileTab } from './components/MobileTabBar';
 import { sounds } from './utils/audio';
 import { ChatThreadItem } from './types';
 import { FormattedMessage } from './components/FormattedMessage';
-import { streamGeminiResponse, ChatMessageContext } from './services/aiService';
+import { streamGeminiResponse, ChatMessageContext, generateContextualImageAnalysis } from './services/aiService';
+import { ReturnCalculatorWidget } from './components/ReturnCalculatorWidget';
+import { KioskSessionGuard } from './components/KioskSessionGuard';
+import { FinancialWidgetType } from './components/FinancialCardWidget';
 import { 
-  ChevronDown, Sun, Moon, Copy, Check, Volume2, VolumeX, 
-  ThumbsUp, Sparkles, Lock, Shield, LogOut, X, RotateCcw
+  Sun, Moon, Copy, Check, Volume2, VolumeX, X, RotateCcw
 } from 'lucide-react';
 
 interface Message {
@@ -28,12 +28,13 @@ interface Message {
   time?: string;
   hasFlow?: boolean;
   hasCardWidget?: boolean;
+  cardWidgetType?: FinancialWidgetType;
+  hasCalculator?: boolean;
   canRetry?: boolean;
 }
 
 export const App: React.FC = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);
   const [activeSidebarItem, setActiveSidebarItem] = useState<string>('onboarding-flow');
   const [isVoiceOpen, setIsVoiceOpen] = useState<boolean>(false);
   const [isCardDetailOpen, setIsCardDetailOpen] = useState<boolean>(false);
@@ -42,27 +43,92 @@ export const App: React.FC = () => {
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
   const [isCompactCards, setIsCompactCards] = useState<boolean>(true);
-  const [isLocked, setIsLocked] = useState<boolean>(false);
-  const [lockWarningCountdown, setLockWarningCountdown] = useState<number | null>(null);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   
   // Right Navigation Suggestions & Context Drawer State (Mockup Match)
-  const [isRightNavOpen, setIsRightNavOpen] = useState<boolean>(true);
+  const [isRightNavOpen, setIsRightNavOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024;
+    }
+    return false;
+  });
+  const [highlightedTopic, setHighlightedTopic] = useState<string | null>(null);
   const [externalInsertedText, setExternalInsertedText] = useState<string>('');
   const [selectedPreviewImage, setSelectedPreviewImage] = useState<string | null>(null);
   const [activeContextDoc, setActiveContextDoc] = useState<string | null>(null);
 
-  // Mobile Native App State (Thumb-Reach Tabs & Slide-Over Drawer)
+  // Mobile Native App State (Side Offcanvas Drawer)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
-  const [activeMobileTab, setActiveMobileTab] = useState<MobileTab>('chat');
 
-  const [darkWallpaper, setDarkWallpaper] = useState<'waves' | 'arch'>(() => {
-    try {
-      const saved = localStorage.getItem('maybank_dark_wallpaper');
-      if (saved === 'waves' || saved === 'arch') return saved;
-    } catch {}
-    return 'waves';
-  });
+  // Auto-close drawers when resizing into desktop/tablet view (>= 1024px)
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsRightNavOpen(false);
+      } else {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Apple Native Bidirectional edge-swipe gestures on mobile
+  // Left edge swipe right -> opens conversation history drawer
+  // Right edge swipe left -> opens suggestions & context drawer
+  useEffect(() => {
+    let startX = 0;
+    let startY = 0;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches && e.touches[0]) {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.changedTouches && e.changedTouches[0]) {
+        const deltaX = e.changedTouches[0].clientX - startX;
+        const deltaY = Math.abs(e.changedTouches[0].clientY - startY);
+        const screenWidth = window.innerWidth;
+
+        // Left edge swipe right (> 45px) opens left sidebar
+        if (startX < 36 && deltaX > 45 && deltaY < 40) {
+          (document.activeElement as HTMLElement)?.blur();
+          sounds.playGlassClick();
+          setIsMobileSidebarOpen(true);
+        }
+
+        // Right edge swipe left (< -45px) opens right suggestions drawer on mobile/tablet
+        if (startX > screenWidth - 36 && deltaX < -45 && deltaY < 40) {
+          (document.activeElement as HTMLElement)?.blur();
+          sounds.playGlassClick();
+          setIsRightNavOpen(true);
+        }
+      }
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, []);
+
+  // Pre-load and cache voices for instant high-quality female TTS across browsers
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      const onVoicesChanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+      window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
+      return () => window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+    }
+  }, []);
 
   const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const speechWatchdogRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -72,8 +138,21 @@ export const App: React.FC = () => {
   // Sidebar Threads Metadata State (Single source of truth with LocalStorage persistence)
   const [chatThreads, setChatThreads] = useState<ChatThreadItem[]>(() => {
     try {
+      const savedThreadsRaw = localStorage.getItem('maybank_threads_history_v1');
+      const savedThreads: Record<string, Message[]> = savedThreadsRaw ? JSON.parse(savedThreadsRaw) : {};
       const saved = localStorage.getItem('maybank_chat_threads_v1');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: ChatThreadItem[] = JSON.parse(saved);
+        // Automatically prune empty ghost "New Conversation" entries that have no messages
+        const cleaned = parsed.filter(t => {
+          if (t.title === 'New Conversation' || t.title === 'New Chat') {
+            const count = savedThreads[t.id]?.length || 0;
+            return count > 0;
+          }
+          return true;
+        });
+        if (cleaned.length > 0) return cleaned;
+      }
     } catch {}
     return [
       { id: 'onboarding-flow', title: 'Customer Onboarding Flow', time: 'Just now', isPinned: true },
@@ -312,73 +391,9 @@ export const App: React.FC = () => {
     }
   }, [activeSidebarItem]);
 
-  // Kiosk Inactivity Lock Screen Timer (MAS TRM Compliant with 10s Grace Warning HUD)
-  useEffect(() => {
-    let warningTimer: number;
-    let lockTimer: number;
-    let countdownInterval: number;
-
-    const clearAllTimers = () => {
-      clearTimeout(warningTimer);
-      clearTimeout(lockTimer);
-      clearInterval(countdownInterval);
-      setLockWarningCountdown(null);
-    };
-
-    const resetIdle = () => {
-      clearAllTimers();
-      if (isLocked) return;
-
-      // At 110s, initiate 10s grace warning countdown
-      warningTimer = window.setTimeout(() => {
-        let remaining = 10;
-        setLockWarningCountdown(remaining);
-
-        countdownInterval = window.setInterval(() => {
-          remaining -= 1;
-          if (remaining <= 0) {
-            clearInterval(countdownInterval);
-            setLockWarningCountdown(null);
-          } else {
-            setLockWarningCountdown(remaining);
-          }
-        }, 1000);
-      }, 110000);
-
-      // Auto lock after 120s of total inactivity
-      lockTimer = window.setTimeout(() => {
-        setIsLocked(true);
-        clearAllTimers();
-      }, 120000);
-    };
-
-    window.addEventListener('pointermove', resetIdle);
-    window.addEventListener('keydown', resetIdle);
-    window.addEventListener('touchstart', resetIdle);
-    resetIdle();
-
-    return () => {
-      clearAllTimers();
-      window.removeEventListener('pointermove', resetIdle);
-      window.removeEventListener('keydown', resetIdle);
-      window.removeEventListener('touchstart', resetIdle);
-    };
-  }, [isLocked]);
-
   const toggleTheme = () => {
     sounds.playGlassClick();
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  };
-
-  const handleToggleWallpaper = () => {
-    sounds.playGlassClick();
-    setDarkWallpaper(prev => {
-      const next = prev === 'waves' ? 'arch' : 'waves';
-      try {
-        localStorage.setItem('maybank_dark_wallpaper', next);
-      } catch {}
-      return next;
-    });
   };
 
   const handleStopGeneration = () => {
@@ -399,14 +414,27 @@ export const App: React.FC = () => {
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const targetThreadId = activeSidebarItem;
     
-    // Auto-rename 'New Conversation' on first message
-    setChatThreads(prev =>
-      prev.map(t =>
-        t.id === targetThreadId && t.title === 'New Conversation'
-          ? { ...t, title: promptText.length > 26 ? `${promptText.substring(0, 26)}...` : promptText }
+    // Auto-derive smart thread title from first message
+    const threadTitle = promptText.length > 28 ? `${promptText.substring(0, 28)}...` : promptText;
+
+    // Ensure thread is added to sidebar navigation only once user actually sends their message!
+    setChatThreads(prev => {
+      const exists = prev.some(t => t.id === targetThreadId);
+      if (!exists) {
+        const newThread: ChatThreadItem = {
+          id: targetThreadId,
+          title: threadTitle,
+          time: 'Just now',
+          isPinned: false
+        };
+        return [newThread, ...prev];
+      }
+      return prev.map(t =>
+        t.id === targetThreadId && (t.title === 'New Conversation' || t.title === 'New Chat')
+          ? { ...t, title: threadTitle }
           : t
-      )
-    );
+      );
+    });
 
     // Cancel any previous in-flight stream
     if (abortControllerRef.current) {
@@ -428,7 +456,26 @@ export const App: React.FC = () => {
 
     const lowerText = promptText.toLowerCase();
     const hasFlow = lowerText.includes('flow') || lowerText.includes('onboarding') || lowerText.includes('diagram');
-    const hasCardWidget = lowerText.includes('card') || lowerText.includes('horizon') || lowerText.includes('privilege') || lowerText.includes('miles');
+
+    let cardWidgetType: FinancialWidgetType = 'saveup';
+    let hasCardWidget = false;
+    let hasCalculator = false;
+
+    if (lowerText.includes('asnb') || lowerText.includes('asb') || lowerText.includes('asm')) {
+      hasCardWidget = true;
+      cardWidgetType = 'asnb';
+    } else if (lowerText.includes('fixed deposit') || lowerText.includes('fd') || lowerText.includes('fd and asnb')) {
+      hasCardWidget = true;
+      cardWidgetType = 'fd';
+    } else if (lowerText.includes('savings') || lowerText.includes('saveup') || lowerText.includes('card') || lowerText.includes('start saving')) {
+      hasCardWidget = true;
+      cardWidgetType = 'saveup';
+    }
+
+    if (lowerText.includes('return') || lowerText.includes('yield') || lowerText.includes('compare fd') || lowerText.includes('which account gives') || lowerText.includes('simulator') || lowerText.includes('calculator') || lowerText.includes('optimize')) {
+      hasCalculator = true;
+    }
+
     const newAiMessageTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     // Prepare message history context for Gemini
@@ -440,6 +487,7 @@ export const App: React.FC = () => {
     try {
       let fullStreamedText = '';
       let isFirstChunk = true;
+      let chunksReceived = 0;
 
       for await (const chunk of streamGeminiResponse(promptText, image, chatHistoryContext, controller.signal)) {
         if (isFirstChunk) {
@@ -455,13 +503,16 @@ export const App: React.FC = () => {
                 text: '', 
                 time: newAiMessageTime,
                 hasFlow,
-                hasCardWidget
+                hasCardWidget,
+                cardWidgetType,
+                hasCalculator
               }
             ]
           }));
           isFirstChunk = false;
         }
 
+        chunksReceived++;
         fullStreamedText += chunk;
         const currentText = fullStreamedText;
 
@@ -475,6 +526,26 @@ export const App: React.FC = () => {
           }
           return { ...prev, [targetThreadId]: updated };
         });
+      }
+
+      // Safety Guard: If stream completed with 0 chunks or blank text, guarantee an intelligent response
+      if (chunksReceived === 0 || !fullStreamedText.trim()) {
+        const smartResponse = generateContextualImageAnalysis(promptText, !!image);
+        setThreads(prev => ({
+          ...prev,
+          [targetThreadId]: [
+            ...(prev[targetThreadId] || []),
+            { 
+              sender: 'ai', 
+              text: smartResponse, 
+              time: newAiMessageTime,
+              hasFlow,
+              hasCardWidget,
+              cardWidgetType,
+              hasCalculator
+            }
+          ]
+        }));
       }
 
       setIsStreaming(false);
@@ -495,15 +566,20 @@ export const App: React.FC = () => {
       setIsStreaming(false);
       abortControllerRef.current = null;
 
-      const fallbackText = `I encountered a momentary connectivity issue contacting the AI engine (${err?.message || 'Network error'}). Maybank Singapore's offline branch protocol is active. Please verify your API key or network connection.`;
-      
+      // Provide intelligent analysis coupled with offline protocol notification
+      const fallbackAnalysis = generateContextualImageAnalysis(promptText, !!image);
+      const isMissingKey = err?.message?.includes('missing') || err?.message?.includes('API key');
+      const advisoryNote = isMissingKey
+        ? `\n\n> ℹ️ *Maybank Sovereign Vision Protocol Active (Offline Demonstration Mode).*`
+        : `\n\n> ℹ️ *Maybank Sovereign Vision Protocol Active (${err?.message || 'Branch Gateway Protocol'}).*`;
+
       setThreads(prev => ({
         ...prev,
         [targetThreadId]: [
           ...(prev[targetThreadId] || []),
           {
             sender: 'ai',
-            text: fallbackText,
+            text: `${fallbackAnalysis}${advisoryNote}`,
             time: newAiMessageTime,
             hasCardWidget
           }
@@ -552,16 +628,61 @@ export const App: React.FC = () => {
     window.speechSynthesis.cancel();
     window.speechSynthesis.resume();
 
-    // Clean markdown characters for natural speech synthesis
+    // Clean markdown characters & table pipes for natural speech synthesis
     const cleanText = text
+      .replace(/\|/g, ' ')
       .replace(/[*_#`~[\]()]/g, '')
-      .replace(/---+/g, '')
+      .replace(/-{3,}/g, '')
+      .replace(/:---+/g, '')
       .replace(/\n+/g, '. ')
       .trim();
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.rate = 1.0;
-    utterance.pitch = 1.0;
+    utterance.pitch = 1.05;
+
+    // Prioritize natural female/woman voices across operating systems and browsers
+    const allVoices = window.speechSynthesis.getVoices();
+    if (allVoices && allVoices.length > 0) {
+      const topFemaleNames = [
+        'Jenny', 'Aria', 'Michelle', 'Ava', 'Samantha', 'Victoria', 'Zira', 
+        'Sonia', 'Libby', 'Karen', 'Moira', 'Tessa', 'Fiona', 'Heera', 'Neerja',
+        'Google UK English Female', 'Google US English Female'
+      ];
+      
+      // 1. Primary: Natural English female voice by name keyword
+      let selectedVoice = allVoices.find(v => 
+        v.lang.toLowerCase().startsWith('en') && 
+        topFemaleNames.some(name => v.name.toLowerCase().includes(name.toLowerCase()))
+      );
+
+      // 2. Secondary: Any English voice with "female" or "woman" in its name or gender
+      if (!selectedVoice) {
+        selectedVoice = allVoices.find(v => 
+          v.lang.toLowerCase().startsWith('en') && 
+          (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('woman') || (v as any).gender === 'female')
+        );
+      }
+
+      // 3. Tertiary: Any voice matching female names in any language
+      if (!selectedVoice) {
+        selectedVoice = allVoices.find(v => 
+          topFemaleNames.some(name => v.name.toLowerCase().includes(name.toLowerCase())) ||
+          v.name.toLowerCase().includes('female') ||
+          v.name.toLowerCase().includes('woman')
+        );
+      }
+
+      // 4. Fallback: English voice
+      if (!selectedVoice) {
+        selectedVoice = allVoices.find(v => v.lang.toLowerCase().startsWith('en'));
+      }
+
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+    }
+
     activeUtteranceRef.current = utterance;
 
     const cleanup = () => {
@@ -597,10 +718,33 @@ export const App: React.FC = () => {
       setIsStreaming(false);
       setIsThinking(false);
     }
+    // Cancel pending speech synthesis and reset audio state on thread switch
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      setSpeakingIndex(null);
+      activeUtteranceRef.current = null;
+      if (speechWatchdogRef.current) {
+        clearInterval(speechWatchdogRef.current);
+        speechWatchdogRef.current = null;
+      }
+    }
     sounds.playGlassClick();
+
+    // If leaving an empty draft that was never registered in chatThreads, discard it cleanly
+    if (activeSidebarItem !== id) {
+      setThreads(prev => {
+        const prevMsgs = prev[activeSidebarItem] || [];
+        if (prevMsgs.length === 0 && !chatThreads.some(t => t.id === activeSidebarItem)) {
+          const copy = { ...prev };
+          delete copy[activeSidebarItem];
+          return copy;
+        }
+        return prev;
+      });
+    }
+
     setActiveSidebarItem(id);
     setIsMobileSidebarOpen(false);
-    setActiveMobileTab('chat');
   };
 
   const handleTogglePin = (id: string) => {
@@ -629,16 +773,9 @@ export const App: React.FC = () => {
         if (updated.length > 0) {
           setActiveSidebarItem(updated[0].id);
         } else {
-          // If all chats were deleted, spawn a fresh clean conversation
+          // If all chats were deleted, spawn a fresh clean draft without adding to sidebar
           const fallbackId = `chat-${Date.now()}`;
-          const fallbackThread: ChatThreadItem = {
-            id: fallbackId,
-            title: 'New Conversation',
-            time: 'Just now',
-            isPinned: false
-          };
           setTimeout(() => {
-            setChatThreads([fallbackThread]);
             setActiveSidebarItem(fallbackId);
             setThreads(p => ({ ...p, [fallbackId]: [] }));
           }, 0);
@@ -662,29 +799,46 @@ export const App: React.FC = () => {
       setIsThinking(false);
     }
     sounds.playGlassClick();
-    const newId = `chat-${Date.now()}`;
-    const newThread: ChatThreadItem = {
-      id: newId,
-      title: 'New Conversation',
-      time: 'Just now',
-      isPinned: false
-    };
-    setChatThreads(prev => [newThread, ...prev]);
-    setThreads(prev => ({ ...prev, [newId]: [] }));
-    setActiveSidebarItem(newId);
+
+    // If current conversation is ALREADY an empty draft (0 messages and not in chatThreads), simply stay on it!
+    const currentMsgs = threads[activeSidebarItem] || [];
+    if (currentMsgs.length === 0 && !chatThreads.some(t => t.id === activeSidebarItem)) {
+      setIsMobileSidebarOpen(false);
+      return;
+    }
+
+    // Set to fresh draft ID, but DO NOT add to chatThreads until user actually sends a message!
+    const newDraftId = `chat-${Date.now()}`;
+    setThreads(prev => ({ ...prev, [newDraftId]: [] }));
+    setActiveSidebarItem(newDraftId);
     setIsMobileSidebarOpen(false);
-    setActiveMobileTab('chat');
   };
 
-  const handleLogout = () => {
-    sounds.playGlassClick();
-    setIsLoggedIn(false);
-  };
+  // Scrub any empty ghost "New Conversation" entries on mount or hot-reload
+  useEffect(() => {
+    setChatThreads(prev => {
+      const cleaned = prev.filter(t => {
+        if (t.title === 'New Conversation' || t.title === 'New Chat') {
+          const count = threads[t.id]?.length || 0;
+          return count > 0;
+        }
+        return true;
+      });
+      return cleaned.length !== prev.length ? cleaned : prev;
+    });
+  }, [threads]);
 
-  const handleLogin = (_userName?: string) => {
-    sounds.playCuteSmile();
-    setIsLoggedIn(true);
-  };
+  // Global ⌘N / Ctrl+N shortcut for New Chat
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        handleNewChat();
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [activeSidebarItem, chatThreads, threads]);
 
   const handleSelectSuggestion = (prompt: string, runImmediately = false, contextDocName?: string) => {
     if (contextDocName) {
@@ -700,10 +854,10 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="relative h-full h-[100dvh] w-screen overflow-hidden font-sans antialiased bg-[#F5F6F8] dark:bg-[#08090C] text-slate-900 dark:text-white transition-colors duration-300">
+    <div className="relative h-[100dvh] w-screen overflow-hidden font-sans antialiased bg-[#F5F6F8] dark:bg-[#08090C] text-slate-900 dark:text-white transition-colors duration-300">
       
       {/* ========================================================================= */}
-      {/* OVERALL FIXED BACKGROUND (Retained across Logged In and Login screens)    */}
+      {/* OVERALL FIXED BACKGROUND (Light & Dark Single Themes)                     */}
       {/* ========================================================================= */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden bg-[#F5F6F8] dark:bg-[#08090C]">
         {/* Light Mode Silk Waves */}
@@ -714,34 +868,14 @@ export const App: React.FC = () => {
             theme === 'light' ? 'opacity-95' : 'opacity-0'
           }`} 
         />
-        {/* Dark Mode Obsidian Waves (User Provided) */}
+        {/* Dark Mode Obsidian Waves */}
         <img 
           src="/assets/dark-waves.png" 
           alt="Dark Obsidian Waves" 
           className={`w-full h-full object-cover object-center transition-opacity duration-700 absolute inset-0 ${
-            theme === 'dark' && darkWallpaper === 'waves' ? 'opacity-100' : 'opacity-0'
+            theme === 'dark' ? 'opacity-100' : 'opacity-0'
           }`} 
         />
-        {/* Dark Mode Architectural Portal (User Provided) */}
-        <div 
-          className={`absolute inset-0 transition-opacity duration-700 pointer-events-none ${
-            theme === 'dark' && darkWallpaper === 'arch' ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
-          <img 
-            src="/assets/dark-arch.png" 
-            alt="Dark Architectural Portal" 
-            className="w-full h-full object-cover object-right-top opacity-90" 
-          />
-          {/* Soft Atmospheric Moonlight Horizon Shader */}
-          <div 
-            className="absolute inset-0" 
-            style={{
-              background: 'radial-gradient(ellipse at 85% 25%, rgba(56, 189, 248, 0.12), transparent 60%)'
-            }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#08090C]/90 via-[#08090C]/50 to-transparent" />
-        </div>
         
         {/* Ambient Overlays */}
         <div className={`absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-white/40 pointer-events-none transition-opacity duration-700 ${theme === 'light' ? 'opacity-100' : 'opacity-0'}`} />
@@ -749,211 +883,161 @@ export const App: React.FC = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* MAIN VIEW: RESPONSIVE NATIVE APP WORKSPACE OR DUMMY LOGIN SCREEN          */}
+      {/* MAIN VIEW: RESPONSIVE NATIVE APP WORKSPACE (Direct Access For All)        */}
       {/* ========================================================================= */}
-      {isLoggedIn ? (
-        <div 
-          aria-hidden={isLocked ? "true" : undefined}
-          {...(isLocked ? { inert: '' } : {})}
-          className="relative z-10 flex h-full w-full p-0 sm:p-3 lg:p-5 gap-0 lg:gap-5 box-border animate-in fade-in duration-300 overflow-hidden"
+      <div className="relative z-10 flex h-full min-h-0 w-full p-0 sm:p-3 lg:p-5 gap-0 lg:gap-5 box-border animate-in fade-in duration-300">
+        
+        {/* COLUMN 1: LEFT SIDEBAR (Desktop Fixed / Mobile Slide-Over Drawer) */}
+        <Sidebar 
+          activeItemId={activeSidebarItem}
+          threads={chatThreads}
+          onSelectItem={handleSelectSidebarItem}
+          onNewChat={handleNewChat}
+          onTogglePin={handleTogglePin}
+          onRenameChat={handleRenameChat}
+          onDeleteChat={handleDeleteChat}
+          isMobileOpen={isMobileSidebarOpen}
+          onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        />
+
+        {/* COLUMN 2: EXPANSIVE CHAT & WORKSPACE CANVAS */}
+        <main 
+          onWheel={(e) => {
+            if (scrollContainerRef.current && !scrollContainerRef.current.contains(e.target as Node)) {
+              scrollContainerRef.current.scrollTop += e.deltaY;
+            }
+          }}
+          className="flex-1 min-w-0 min-h-0 h-full flex flex-col overflow-hidden relative pb-0"
         >
-          
-          {/* COLUMN 1: LEFT SIDEBAR (Desktop Fixed / Mobile Slide-Over Drawer) */}
-          <Sidebar 
-            activeItemId={activeSidebarItem}
-            threads={chatThreads}
-            onSelectItem={handleSelectSidebarItem}
+
+          {/* Mobile Native Apple Header */}
+          <MobileHeader 
+            theme={theme}
+            onToggleTheme={toggleTheme}
             onNewChat={handleNewChat}
-            onTogglePin={handleTogglePin}
-            onRenameChat={handleRenameChat}
-            onDeleteChat={handleDeleteChat}
-            onLogout={handleLogout}
-            isMobileOpen={isMobileSidebarOpen}
-            onCloseMobile={() => {
-              setIsMobileSidebarOpen(false);
-              setActiveMobileTab('chat');
-            }}
+            activeChatTitle={chatThreads.find(t => t.id === activeSidebarItem)?.title || 'New Chat'}
+            onOpenSidebar={() => setIsMobileSidebarOpen(true)}
           />
 
-          {/* COLUMN 2: EXPANSIVE CHAT & WORKSPACE CANVAS */}
-          <main className="flex-1 min-w-0 min-h-0 h-full flex flex-col overflow-hidden relative pb-20 lg:pb-0">
-
-            {/* Mobile Native Apple Header */}
-            <MobileHeader 
-              theme={theme}
-              onToggleTheme={toggleTheme}
-              darkWallpaper={darkWallpaper}
-              onToggleWallpaper={handleToggleWallpaper}
-              onNewChat={handleNewChat}
-              activeChatTitle={chatThreads.find(t => t.id === activeSidebarItem)?.title || 'Maybank AI'}
-              onOpenSidebar={() => setIsMobileSidebarOpen(true)}
-            />
-
-            {/* Desktop Telemetry Header Bar */}
-            <header className="hidden lg:flex shrink-0 items-center justify-between gap-4 pt-1 px-4 z-20">
-          
-          {/* Top Left: Companion Capsule when chatting, or clean negative space when greeting */}
-          <div className="flex items-center gap-2">
-            {messages.length > 0 && (
-              <div 
-                onClick={() => sounds.playCuteSmile()}
-                className="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-white/80 dark:bg-[#181B22]/80 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-xs cursor-pointer group hover:scale-[1.02] active:scale-95 transition-all"
-                title="Maybank AI Companion (Click to interact)"
-              >
-                <div className="relative">
-                  <RobotAvatar size="sm" />
-                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-black animate-pulse" />
-                </div>
-                <div className="flex flex-col min-w-0 pr-1">
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 tracking-tight truncate max-w-[200px]">
-                    {chatThreads.find(t => t.id === activeSidebarItem)?.title || 'Active Session'}
-                  </span>
-                  <span className="text-[9px] text-slate-400 font-medium">AI Active</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Top Right Hardware Controls */}
-          <div className="flex items-center gap-2">
-            
-            {/* Google Gemini AI Live Engine Status Badge */}
-            <div 
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-400/10 border border-amber-400/25 text-amber-700 dark:text-amber-300 shadow-xs select-none"
-              title="Google Gemini 2.5 Flash Live Engine Active"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span className="text-xs font-bold tracking-tight hidden sm:inline">Gemini 2.5 Flash</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            </div>
-
-            {/* Mute/Sound Toggle Button */}
-            <button 
-              onClick={() => {
-                const next = !soundEnabled;
-                setSoundEnabled(next);
-                if (next) sounds.playCuteSmile();
-              }}
-              className="p-2 rounded-xl bg-white/80 dark:bg-[#181B22] border border-slate-200/70 dark:border-[#272B35] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#20242D] shadow-xs cursor-pointer active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-              title={soundEnabled ? "Mute Acoustic Feedback" : "Enable Acoustic Feedback"}
-            >
-              {soundEnabled ? (
-                <Volume2 className="w-4 h-4 text-sky-500" />
-              ) : (
-                <VolumeX className="w-4 h-4 text-slate-400" />
-              )}
-            </button>
-
-            {/* MAS Session Privacy Lock Button */}
-            <button 
-              onClick={() => {
-                sounds.playGlassClick();
-                setIsLocked(true);
-              }}
-              className="p-2 rounded-xl bg-white/80 dark:bg-[#181B22] border border-slate-200/70 dark:border-[#272B35] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#20242D] shadow-xs cursor-pointer group active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-              title="Lock Kiosk Session (MAS Compliance)"
-            >
-              <Lock className="w-4 h-4 group-hover:text-amber-500 transition-colors" />
-            </button>
-
-            {/* Theme Toggle Button */}
-            <button 
-              onClick={toggleTheme}
-              className="p-2 rounded-xl bg-white/80 dark:bg-[#181B22] border border-slate-200/70 dark:border-[#272B35] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#20242D] shadow-xs cursor-pointer active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-              title={theme === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
-            >
-              {theme === 'light' ? (
-                <Moon className="w-4 h-4 text-slate-600" />
-              ) : (
-                <Sun className="w-4 h-4 text-amber-400" />
-              )}
-            </button>
-
-            {/* Dark Wallpaper Motif Toggle (Obsidian Waves <-> Architectural Portal) */}
-            {theme === 'dark' && (
-              <button 
-                onClick={handleToggleWallpaper}
-                className="p-2 rounded-xl bg-white/80 dark:bg-[#181B22] border border-slate-200/70 dark:border-[#272B35] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#20242D] shadow-xs cursor-pointer group active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-                title={`Backdrop Motif: ${darkWallpaper === 'waves' ? 'Obsidian Waves' : 'Architectural Arch'} (Click to switch)`}
-                aria-label="Toggle Dark Wallpaper Backdrop"
-              >
-                <Sparkles className="w-4 h-4 text-amber-400 group-hover:rotate-12 transition-transform" />
-              </button>
-            )}
-
-            {/* User Profile Avatar */}
-            <div 
-              onClick={() => sounds.playGlassClick()}
-              className="w-8 h-8 rounded-xl bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-800 flex items-center justify-center font-bold text-xs shadow-xs border border-slate-700/50 cursor-pointer active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-              title="Branch Officer: Manikandan"
-            >
-              M
-            </div>
-
-            {/* Session Logout Action Button */}
-            <button 
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-semibold hover:bg-rose-100 dark:hover:bg-rose-500/20 cursor-pointer shadow-xs ml-1 active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-              title="Logout from Maybank Kiosk Session"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Exit</span>
-            </button>
-
-          </div>
-
-        </header>
-
-        {/* Scrollable Center Conversation Canvas */}
-        <div 
-          ref={scrollContainerRef}
-          className="flex-1 min-h-0 overflow-y-auto px-4 md:px-8 py-2 custom-scrollbar ios-scroll"
-        >
-          
-          <div className="max-w-4xl mx-auto min-h-full flex flex-col justify-start">
-            
-            {/* Empty Greeting State */}
-            {messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center my-auto py-8 animate-in fade-in duration-500 text-center">
-                
-                {/* 🤖 Apple VisionOS Staged Robot Avatar Pedestal */}
+          {/* Desktop Telemetry Header Bar */}
+          <header className="hidden lg:flex shrink-0 items-center justify-between gap-4 pt-1 px-4 z-20">
+        
+            {/* Top Left: Companion Capsule when chatting, or clean negative space when greeting */}
+            <div className="flex items-center gap-2">
+              {messages.length > 0 && (
                 <div 
                   onClick={() => sounds.playCuteSmile()}
-                  className="group/avatar relative mb-6 cursor-pointer transform hover:scale-105 active:scale-95 transition-all duration-300"
+                  className="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-white/85 dark:bg-[#181B22]/85 backdrop-blur-xl border border-white/90 dark:border-white/15 shadow-[0_4px_16px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.15)] cursor-pointer group hover:scale-[1.02] active:scale-95 transition-all duration-300 animate-in fade-in slide-in-from-top-2"
                   title="Maybank AI Companion (Click to interact)"
                 >
-                  {/* Frosted Multi-Tone VisionOS Ambient Aura */}
-                  <div className="absolute -inset-4 rounded-[40px] bg-gradient-to-tr from-sky-400/20 via-blue-500/15 to-amber-400/20 blur-xl opacity-80 group-hover/avatar:opacity-100 transition-opacity duration-500 animate-pulse" />
+                  <div className="relative">
+                    <RobotAvatar size="sm" />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-black animate-pulse shadow-xs" />
+                  </div>
+                  <div className="flex flex-col min-w-0 pr-1">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-100 tracking-tight truncate max-w-[200px]">
+                      {chatThreads.find(t => t.id === activeSidebarItem)?.title || 'Active Session'}
+                    </span>
+                    <span className="text-[9px] text-slate-500 dark:text-slate-300 font-medium">AI Active</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Top Right Hardware Controls */}
+            <div className="flex items-center gap-2">
+
+              {/* Mute/Sound Toggle Button */}
+              <button 
+                onClick={() => {
+                  const next = !soundEnabled;
+                  setSoundEnabled(next);
+                  if (next) sounds.playCuteSmile();
+                }}
+                className="p-2 rounded-xl bg-white/80 dark:bg-[#181B22] border border-slate-200/70 dark:border-[#272B35] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#20242D] shadow-xs cursor-pointer active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                title={soundEnabled ? "Mute Acoustic Feedback" : "Enable Acoustic Feedback"}
+              >
+                {soundEnabled ? (
+                  <Volume2 className="w-4 h-4 text-sky-500" />
+                ) : (
+                  <VolumeX className="w-4 h-4 text-slate-400" />
+                )}
+              </button>
+
+              {/* Theme Toggle Button */}
+              <button 
+                onClick={toggleTheme}
+                className="p-2 rounded-xl bg-white/80 dark:bg-[#181B22] border border-slate-200/70 dark:border-[#272B35] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#20242D] shadow-xs cursor-pointer active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                title={theme === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
+              >
+                {theme === 'light' ? (
+                  <Moon className="w-4 h-4 text-slate-600" />
+                ) : (
+                  <Sun className="w-4 h-4 text-amber-400" />
+                )}
+              </button>
+
+            </div>
+
+          </header>
+
+        {/* Center Conversation Canvas (Dynamic Zero-Scroll Fit when greeting, Smooth Scroll when chatting) */}
+        <div 
+          ref={scrollContainerRef}
+          className={`flex-1 min-h-0 px-3 sm:px-6 md:px-8 py-1 ios-scroll ${
+            messages.length === 0 
+              ? 'overflow-y-auto lg:overflow-hidden flex flex-col justify-center' 
+              : 'overflow-y-auto custom-scrollbar'
+          }`}
+        >
+          
+          <div className={`max-w-4xl mx-auto w-full ${
+            messages.length === 0 
+              ? 'my-auto flex flex-col justify-center' 
+              : 'min-h-full flex flex-col justify-start'
+          }`}>
+            
+            {/* Empty Greeting State: Architected to fit 100% of visible screen with ZERO scrolling */}
+            {messages.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-1 sm:py-2 animate-in fade-in duration-500 text-center w-full min-h-0">
+                
+                {/* 🤖 Apple VisionOS Floating Expressive Robot Avatar Hero (Elevated 2xl Size) */}
+                <div 
+                  onClick={() => sounds.playCuteSmile()}
+                  className="group/avatar relative mb-2 sm:mb-3 cursor-pointer transform hover:scale-105 active:scale-95 transition-all duration-300 flex flex-col items-center"
+                  title="Maybank AI Companion (Click to interact)"
+                >
+                  {/* Frosted Multi-Tone VisionOS Caustic Ambient Glow */}
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-44 h-44 md:w-56 md:h-56 rounded-full bg-gradient-to-tr from-sky-400/25 via-blue-500/20 to-amber-400/20 blur-3xl opacity-85 group-hover/avatar:opacity-100 transition-opacity duration-500 animate-pulse pointer-events-none" />
                   
-                  {/* Frosted Ceramic Glass Pedestal Capsule */}
-                  <div className="relative flex flex-col items-center p-6 rounded-[36px] bg-gradient-to-b from-white/95 to-white/70 dark:from-[#181B22]/95 dark:to-[#181B22]/70 backdrop-blur-2xl border border-white/90 dark:border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)]">
-                    <RobotAvatar isCurrent={true} size="xl" />
-                    
-                    {/* Floating Status Pill */}
-                    <div className="mt-3.5 px-3 py-1 rounded-full bg-slate-100/90 dark:bg-white/10 border border-slate-200/80 dark:border-white/10 flex items-center gap-1.5 shadow-xs">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200 tracking-wider uppercase">
-                        AI Online • Ready
-                      </span>
-                    </div>
+                  {/* Expressive Floating Robot Head (size 2xl: 144px-176px) */}
+                  <RobotAvatar isCurrent={true} size="2xl" />
+                  
+                  {/* Specular Floating Status Pill */}
+                  <div className="mt-2.5 px-3 py-1 rounded-full bg-white/80 dark:bg-white/10 backdrop-blur-xl border border-white/90 dark:border-white/15 flex items-center gap-1.5 shadow-[0_4px_16px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.15)]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[9px] font-extrabold text-slate-700 dark:text-slate-200 tracking-wider uppercase">
+                      AI Online • Ready
+                    </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 mb-8">
+                <div className="flex items-center gap-4 mb-2 sm:mb-3">
                   <div className="text-center">
-                    <span className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-400 font-bold">
+                    <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 font-extrabold block">
                       {getSingaporeGreeting()}
                     </span>
-                    <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                      Hello, <span className="text-blue-600 dark:text-sky-400 font-black">Manikandan.</span>
+                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-[-0.03em] mt-0.5">
+                      Welcome <span className="bg-gradient-to-r from-blue-600 via-sky-500 to-indigo-600 dark:from-sky-400 dark:via-blue-400 dark:to-cyan-300 bg-clip-text text-transparent">back.</span>
                     </h2>
-                    <p className="text-xl md:text-2xl font-normal text-slate-400 dark:text-slate-500 mt-1">
-                      What can I help you with today?
-                    </p>
                   </div>
                 </div>
 
-                <StarterCards onSelectPrompt={handleSendMessage} compact={false} />
+                <StarterCards 
+                  onSelectPrompt={handleSendMessage} 
+                  compact={false} 
+                  onHoverTopic={setHighlightedTopic}
+                />
               </div>
             )}
 
@@ -993,9 +1077,7 @@ export const App: React.FC = () => {
                               {msg.time || '10:24 AM'}
                             </span>
                           </div>
-                          <div className="w-8 h-8 rounded-full bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-800 flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5 shadow-sm ring-2 ring-slate-200/60 dark:ring-white/20">
-                            M
-                          </div>
+                          <UserAvatar size="md" className="mt-0.5" />
                         </div>
                       ) : (
                         /* Apple Luxury AI Bubble with 3D Cute Eye-Tracking Robot */
@@ -1027,9 +1109,17 @@ export const App: React.FC = () => {
                                 isStreaming={isStreaming && index === messages.length - 1} 
                               />
 
-                              {/* Interactive Financial Card Widget */}
+                              {/* Interactive Return & Yield Simulator */}
+                              {msg.hasCalculator && (
+                                <ReturnCalculatorWidget onAskAboutPlan={(planPrompt) => handleSendMessage(planPrompt)} />
+                              )}
+
+                              {/* Polymorphic Interactive Financial Card Widget */}
                               {msg.hasCardWidget && (
-                                <FinancialCardWidget onOpenCanvas={() => setIsCardDetailOpen(true)} />
+                                <FinancialCardWidget 
+                                  type={msg.cardWidgetType || 'saveup'} 
+                                  onOpenCanvas={() => setIsCardDetailOpen(true)} 
+                                />
                               )}
 
                               {/* Apple Ghost Action Dock with 40px+ Kiosk Touch Ergonomics */}
@@ -1075,14 +1165,6 @@ export const App: React.FC = () => {
                                     <span className="text-[12px] font-semibold">Retry</span>
                                   </button>
                                 )}
-
-                                <button 
-                                  onClick={() => sounds.playGlassClick()}
-                                  title="Helpful"
-                                  className="p-2 rounded-xl hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer min-w-[38px] min-h-[38px] flex items-center justify-center touch-manipulation ml-auto"
-                                >
-                                  <ThumbsUp className="w-4 h-4" />
-                                </button>
                               </div>
 
                             </div>
@@ -1159,28 +1241,6 @@ export const App: React.FC = () => {
           onClose={() => setIsCardDetailOpen(false)}
         />
 
-
-        {/* Pre-Lock Grace Warning Toast HUD (10s Countdown) */}
-        {lockWarningCountdown !== null && !isLocked && (
-          <div 
-            onClick={() => setLockWarningCountdown(null)}
-            className="fixed top-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-2.5 rounded-full bg-slate-900/90 dark:bg-black/90 text-white border border-amber-400/40 shadow-[0_15px_40px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.15)] backdrop-blur-2xl animate-in fade-in slide-in-from-top-4 duration-300 cursor-pointer"
-            role="status"
-            aria-live="polite"
-          >
-            <div className="relative flex items-center justify-center">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping absolute" />
-              <span className="w-2 h-2 rounded-full bg-amber-400 relative" />
-            </div>
-            <span className="text-xs font-medium text-slate-200">
-              Session auto-locking in <strong className="text-amber-400 font-mono text-sm">{lockWarningCountdown}s</strong> due to inactivity
-            </span>
-            <span className="text-[11px] text-slate-400 border-l border-white/20 pl-2.5 hidden sm:inline">
-              Move cursor to stay active
-            </span>
-          </div>
-        )}
-
       </main>
 
       {/* COLUMN 3: RIGHT NAVIGATION SUGGESTIONS & CONTEXT DRAWER (Mockup Match) */}
@@ -1188,6 +1248,15 @@ export const App: React.FC = () => {
         isOpen={isRightNavOpen}
         onClose={() => setIsRightNavOpen(false)}
         onSelectSuggestion={handleSelectSuggestion}
+        highlightedTopic={highlightedTopic}
+      />
+
+      {/* MAS TRM Kiosk Inactivity Session Guard (60s idle timeout auto-reset) */}
+      <KioskSessionGuard 
+        isActiveSession={messages.length > 0} 
+        onResetSession={handleNewChat} 
+        idleTimeoutSeconds={60}
+        warningDurationSeconds={10}
       />
 
       {/* High-Definition Image Lightbox Modal */}
@@ -1216,44 +1285,7 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Apple iOS Floating Frosted Glass Tab Bar (Mobile Only) */}
-      <MobileTabBar 
-          activeTab={activeMobileTab}
-          onSelectTab={(tab) => {
-            setActiveMobileTab(tab);
-            if (tab === 'chat') {
-              setIsMobileSidebarOpen(false);
-              setIsRightNavOpen(false);
-            }
-          }}
-          onOpenSidebar={() => {
-            setIsMobileSidebarOpen(true);
-            setIsRightNavOpen(false);
-          }}
-          onOpenExplore={() => {
-            setIsRightNavOpen(true);
-            setIsMobileSidebarOpen(false);
-          }}
-          onLockSession={() => setIsLocked(true)}
-        />
-
-      </div>
-    ) : (
-      <LoginScreen 
-        onLogin={handleLogin}
-        theme={theme}
-        toggleTheme={toggleTheme}
-        soundEnabled={soundEnabled}
-        setSoundEnabled={setSoundEnabled}
-      />
-    )}
-
-    {/* MAS TRM Kiosk Privacy Curtain Lock Screen (Global Overlay outside inert workspace) */}
-    <KioskPrivacyCurtain 
-      isLocked={isLocked}
-      onUnlock={() => setIsLocked(false)}
-      theme={theme}
-    />
+    </div>
   </div>
 );
 };

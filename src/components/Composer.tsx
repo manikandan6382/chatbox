@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Globe, Mic, MicOff, ArrowUp, X, Image as ImageIcon, AlertCircle, Square } from 'lucide-react';
+import { Plus, Sparkles, Mic, MicOff, ArrowUp, X, Image as ImageIcon, AlertCircle, Square } from 'lucide-react';
 import { sounds } from '../utils/audio';
 
 interface AttachedImage {
@@ -45,6 +45,28 @@ export const Composer: React.FC<ComposerProps> = ({
   const recognitionRef = useRef<any>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Elastic textarea dual-pass RAF recalculation to eliminate iOS / WebKit ghost height and layout jitter
+  const adjustHeight = (resetToAuto = false) => {
+    if (!textareaRef.current) return;
+    if (resetToAuto) {
+      textareaRef.current.style.height = 'auto';
+      requestAnimationFrame(() => {
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto';
+        }
+      });
+      return;
+    }
+
+    textareaRef.current.style.height = 'auto';
+    requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        const nextHeight = Math.min(textareaRef.current.scrollHeight, 128);
+        textareaRef.current.style.height = `${nextHeight}px`;
+      }
+    });
+  };
+
   // Sync externally selected suggestions (e.g. from RightNavigation)
   useEffect(() => {
     if (externalInsertedText) {
@@ -52,17 +74,33 @@ export const Composer: React.FC<ComposerProps> = ({
         const next = prev ? `${prev} ${externalInsertedText}` : externalInsertedText;
         return next;
       });
-      if (textareaRef.current) {
-        setTimeout(() => {
-          if (textareaRef.current) {
-            textareaRef.current.style.height = 'auto';
-            textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 128)}px`;
-            textareaRef.current.focus();
-          }
-        }, 50);
-      }
+      setTimeout(() => {
+        adjustHeight();
+        textareaRef.current?.focus();
+      }, 30);
     }
   }, [externalInsertedText]);
+
+  // Apple Mobile Visual Viewport tracking for virtual keyboard smoothness
+  const [viewportBottomOffset, setViewportBottomOffset] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+
+    const handleVisualResize = () => {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      const offset = window.innerHeight - (vv.height + vv.offsetTop);
+      setViewportBottomOffset(Math.max(0, Math.round(offset)));
+    };
+
+    window.visualViewport.addEventListener('resize', handleVisualResize);
+    window.visualViewport.addEventListener('scroll', handleVisualResize);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', handleVisualResize);
+      window.visualViewport?.removeEventListener('scroll', handleVisualResize);
+    };
+  }, []);
 
   // Clean up timers & recognition on unmount
   useEffect(() => {
@@ -79,10 +117,7 @@ export const Composer: React.FC<ComposerProps> = ({
   // Auto-resize elastic textarea to match multi-line content
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputText(e.target.value);
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 128)}px`;
-    }
+    adjustHeight();
   };
 
   // Image-only upload handler with strict MIME type validation and compression
@@ -116,8 +151,8 @@ export const Composer: React.FC<ComposerProps> = ({
       // Client-side canvas compression to avoid localStorage / memory bloat
       const img = new Image();
       img.onload = () => {
-        const maxWidth = 1200;
-        const maxHeight = 1200;
+        const maxWidth = 1280;
+        const maxHeight = 1280;
         let width = img.width;
         let height = img.height;
 
@@ -137,7 +172,7 @@ export const Composer: React.FC<ComposerProps> = ({
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.78);
           
           sounds.playGlassClick();
           setAttachedImage({
@@ -241,11 +276,8 @@ export const Composer: React.FC<ComposerProps> = ({
           setSpeechInterim(interim);
         }
 
-        // Auto-expand textarea
-        if (textareaRef.current) {
-          textareaRef.current.style.height = 'auto';
-          textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 128)}px`;
-        }
+        // Auto-expand elastic textarea
+        adjustHeight();
       };
 
       recognition.onerror = (event: any) => {
@@ -310,9 +342,7 @@ export const Composer: React.FC<ComposerProps> = ({
       setAttachedImage(null);
       setSpeechInterim('');
       if (onRemoveContextDoc) onRemoveContextDoc();
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
+      adjustHeight(true);
     }
   };
 
@@ -327,7 +357,12 @@ export const Composer: React.FC<ComposerProps> = ({
   const isMultiLine = hasTopChips || inputText.includes('\n') || (textareaRef.current && textareaRef.current.scrollHeight > 36);
 
   return (
-    <div className="p-4 flex flex-col items-center justify-center z-20 pointer-events-auto w-full">
+    <div 
+      className="p-4 flex flex-col items-center justify-center z-20 pointer-events-auto w-full transition-[padding-bottom] duration-150 ease-out"
+      style={{
+        paddingBottom: viewportBottomOffset > 0 ? `${viewportBottomOffset + 12}px` : undefined
+      }}
+    >
       
       {/* Hidden Strict Image File Input */}
       <input 
@@ -391,12 +426,12 @@ export const Composer: React.FC<ComposerProps> = ({
         )}
 
         <div 
-          className={`relative w-full backdrop-blur-2xl px-4 py-2.5 flex flex-col gap-2 transition-all duration-300 ${
+          className={`relative w-full backdrop-blur-3xl px-4 py-2.5 flex flex-col gap-2 transition-all duration-300 ${
             isMultiLine || hasTopChips ? 'rounded-[28px]' : 'rounded-full'
           } ${
             isFocused || isListening
-              ? 'bg-white/95 dark:bg-[#131722]/95 border-white/90 dark:border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.9)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.15)]' 
-              : 'bg-white/80 dark:bg-[#121620]/85 border-white/80 dark:border-white/12 shadow-[0_16px_40px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]'
+              ? 'bg-white/95 dark:bg-[#131722]/95 border-white/90 dark:border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.95),inset_0_-1px_0_rgba(0,0,0,0.03)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.16),inset_0_-1px_0_rgba(0,0,0,0.4)]' 
+              : 'bg-white/85 dark:bg-[#121620]/85 border-white/80 dark:border-white/12 shadow-[0_16px_40px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9),inset_0_-1px_0_rgba(0,0,0,0.03)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(0,0,0,0.35)]'
           } border`}
         >
           
@@ -485,15 +520,15 @@ export const Composer: React.FC<ComposerProps> = ({
               placeholder={
                 isListening 
                   ? "Listening to your voice..." 
-                  : "Ask Maybank AI anything (e.g. Horizon Visa privileges, card onboarding)..."
+                  : "Message Maybank AI..."
               }
-              className="flex-1 bg-transparent border-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 text-[14px] font-normal tracking-tight focus:outline-none px-2 resize-none max-h-32 min-h-[24px] py-1 leading-relaxed custom-scrollbar"
+              className="flex-1 bg-transparent border-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 placeholder:truncate placeholder:whitespace-nowrap placeholder:overflow-hidden text-[14px] font-normal tracking-tight focus:outline-none px-2 resize-none max-h-32 min-h-[24px] py-1 leading-relaxed custom-scrollbar"
             />
 
             {/* Right Action Icons Dock */}
             <div className="flex items-center gap-1.5 flex-shrink-0 mb-0.5">
               
-              {/* Globe Icon: Toggles Right Suggestions & Context Drawer (Mockup Match) */}
+              {/* Sparkles Icon: Toggles Right Suggestions, Tools & Context Drawer */}
               <button 
                 type="button"
                 onClick={() => {
@@ -504,10 +539,11 @@ export const Composer: React.FC<ComposerProps> = ({
                 className={`p-2 rounded-full transition-all active:scale-90 cursor-pointer ${
                   isRightNavOpen 
                     ? 'bg-sky-500 text-white shadow-md shadow-sky-500/25 scale-105' 
-                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10'
+                    : 'text-slate-400 hover:text-sky-500 dark:hover:text-sky-400 hover:bg-slate-100 dark:hover:bg-white/10'
                 }`}
+                aria-label="Toggle AI Suggestions & Tools"
               >
-                <Globe className="w-4 h-4" />
+                <Sparkles className="w-4 h-4 stroke-[2.2]" />
               </button>
 
               {/* Real Voice-to-Text Dictation Toggle (Web Speech API) */}
