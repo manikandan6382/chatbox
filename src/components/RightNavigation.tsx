@@ -303,17 +303,18 @@ export const RightNavigation: React.FC<RightNavigationProps> = ({
 
           <div className="relative z-10">
             <div className="flex items-center gap-1.5 mb-2.5">
-              <span className="text-[10px] font-black tracking-widest uppercase text-slate-500 dark:text-slate-400">
-                ENGAGEAI
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+              <span className="text-[10px] font-black tracking-widest uppercase text-amber-600 dark:text-amber-400">
+                MAYBANK · WEALTH ADVISORY
               </span>
             </div>
 
             <h3 className="text-xl font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight mb-2">
-              Turn<br />conversations<br />into growth.
+              Humanising<br />financial<br />services.
             </h3>
 
-            <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-relaxed max-w-[190px]">
-              AI agents. Real business impact.
+            <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-[210px]">
+              Empowering your financial journey with trusted advice and sustainable growth.
             </p>
           </div>
         </div>
@@ -514,10 +515,10 @@ export const RightNavigation: React.FC<RightNavigationProps> = ({
 
           <div className="relative z-10">
             <p className="text-sm font-bold text-slate-900 dark:text-slate-100 tracking-tight mb-1">
-              “From ideas to impact.”
+              “Building a better world together.”
             </p>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-              — iNextLabs
+              — Malayan Banking Berhad
             </p>
           </div>
         </div>

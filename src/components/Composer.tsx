@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Sparkles, Mic, MicOff, ArrowUp, X, Image as ImageIcon, AlertCircle, Square } from 'lucide-react';
+import { Plus, Lightbulb, Mic, MicOff, ArrowUp, X, Image as ImageIcon, AlertCircle, Square } from 'lucide-react';
 import { sounds } from '../utils/audio';
 
 interface AttachedImage {
@@ -426,7 +426,7 @@ export const Composer: React.FC<ComposerProps> = ({
         )}
 
         <div 
-          className={`relative w-full backdrop-blur-3xl px-4 py-2.5 flex flex-col gap-2 transition-all duration-300 ${
+          className={`relative w-full backdrop-blur-3xl px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col gap-2 transition-all duration-300 ${
             isMultiLine || hasTopChips ? 'rounded-[28px]' : 'rounded-full'
           } ${
             isFocused || isListening
@@ -493,7 +493,7 @@ export const Composer: React.FC<ComposerProps> = ({
           )}
 
           {/* Primary Input Row */}
-          <div className="flex items-end gap-3 w-full">
+          <div className="flex items-end gap-2 sm:gap-3 w-full min-w-0">
             
             {/* (+) Image Attachment Button (Strict Image-Only) */}
             <button 
@@ -503,9 +503,9 @@ export const Composer: React.FC<ComposerProps> = ({
                 fileInputRef.current?.click();
               }}
               title="Attach financial screenshot or document (Images only)"
-              className="w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center justify-center flex-shrink-0 active:scale-90 transition-all cursor-pointer mb-0.5 group"
+              className="w-8 h-8 rounded-full bg-slate-100/90 hover:bg-slate-200/90 dark:bg-white/10 dark:hover:bg-white/20 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white border border-slate-200/70 dark:border-white/10 shadow-xs flex items-center justify-center flex-shrink-0 active:scale-95 transition-all duration-200 cursor-pointer mb-0.5 group"
             >
-              <Plus className="w-4 h-4 stroke-[2.2] group-hover:rotate-90 transition-transform duration-200" />
+              <Plus className="w-4 h-4 stroke-[2] group-hover:rotate-90 transition-transform duration-200" />
             </button>
 
             {/* Elastic Multi-Line Textarea */}
@@ -519,31 +519,31 @@ export const Composer: React.FC<ComposerProps> = ({
               onBlur={() => setIsFocused(false)}
               placeholder={
                 isListening 
-                  ? "Listening to your voice..." 
-                  : "Message Maybank AI..."
+                  ? "Listening..." 
+                  : "Message Maybank..."
               }
-              className="flex-1 bg-transparent border-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 placeholder:truncate placeholder:whitespace-nowrap placeholder:overflow-hidden text-[14px] font-normal tracking-tight focus:outline-none px-2 resize-none max-h-32 min-h-[24px] py-1 leading-relaxed custom-scrollbar"
+              className="flex-1 min-w-0 bg-transparent border-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 placeholder:truncate placeholder:whitespace-nowrap placeholder:overflow-hidden text-[14px] font-normal tracking-tight focus:outline-none px-1.5 sm:px-2 resize-none max-h-32 min-h-[24px] py-1 leading-relaxed custom-scrollbar"
             />
 
-            {/* Right Action Icons Dock */}
-            <div className="flex items-center gap-1.5 flex-shrink-0 mb-0.5">
+            {/* Right Action Icons Dock — Apple Luxury Spatial Minimalism */}
+            <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0 mb-0.5">
               
-              {/* Sparkles Icon: Toggles Right Suggestions, Tools & Context Drawer */}
+              {/* Lightbulb Icon: Toggles Right Suggestions Drawer */}
               <button 
                 type="button"
                 onClick={() => {
                   sounds.playGlassClick();
                   if (onToggleRightNav) onToggleRightNav();
                 }}
-                title={isRightNavOpen ? "Hide Suggestions & Context Drawer" : "Show Suggestions & Context Drawer"}
-                className={`p-2 rounded-full transition-all active:scale-90 cursor-pointer ${
+                title={isRightNavOpen ? "Hide Suggestions & Guidance" : "Show Suggestions & Guidance"}
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 cursor-pointer ${
                   isRightNavOpen 
-                    ? 'bg-sky-500 text-white shadow-md shadow-sky-500/25 scale-105' 
-                    : 'text-slate-400 hover:text-sky-500 dark:hover:text-sky-400 hover:bg-slate-100 dark:hover:bg-white/10'
+                    ? 'bg-slate-100 dark:bg-white/15 text-amber-500 dark:text-amber-400 border border-slate-200/90 dark:border-white/15 shadow-xs' 
+                    : 'text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200 hover:bg-slate-100/80 dark:hover:bg-white/10'
                 }`}
-                aria-label="Toggle AI Suggestions & Tools"
+                aria-label="Toggle Suggestions & Guidance"
               >
-                <Sparkles className="w-4 h-4 stroke-[2.2]" />
+                <Lightbulb className="w-4 h-4 stroke-[1.8]" />
               </button>
 
               {/* Real Voice-to-Text Dictation Toggle (Web Speech API) */}
@@ -551,19 +551,19 @@ export const Composer: React.FC<ComposerProps> = ({
                 type="button"
                 onClick={toggleVoiceToText}
                 title={isListening ? "Stop Voice Dictation" : "Start Voice-to-Text Dictation"}
-                className={`p-2 rounded-full active:scale-90 transition-all cursor-pointer group relative ${
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 cursor-pointer group relative ${
                   isListening
-                    ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30 scale-105 animate-pulse'
-                    : 'text-slate-400 hover:text-sky-500 dark:hover:text-sky-300 hover:bg-slate-100 dark:hover:bg-white/10'
+                    ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/25 animate-pulse'
+                    : 'text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200 hover:bg-slate-100/80 dark:hover:bg-white/10'
                 }`}
               >
                 {isListening ? (
-                  <MicOff className="w-4 h-4" />
+                  <MicOff className="w-4 h-4 stroke-[1.8]" />
                 ) : (
-                  <Mic className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  <Mic className="w-4 h-4 stroke-[1.8] group-hover:scale-110 transition-transform" />
                 )}
                 {isListening && (
-                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-400 animate-ping" />
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-rose-400 animate-ping" />
                 )}
               </button>
 
@@ -576,7 +576,7 @@ export const Composer: React.FC<ComposerProps> = ({
                     if (onStopGeneration) onStopGeneration();
                   }}
                   title="Stop Generating (Cancel)"
-                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-200 bg-rose-500 hover:bg-rose-600 text-white shadow-md shadow-rose-500/30 active:scale-90 cursor-pointer animate-pulse"
+                  className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-200 bg-rose-500 hover:bg-rose-600 text-white shadow-sm shadow-rose-500/25 active:scale-95 cursor-pointer animate-pulse"
                 >
                   <Square className="w-3.5 h-3.5 fill-current" />
                 </button>
@@ -586,13 +586,13 @@ export const Composer: React.FC<ComposerProps> = ({
                   onClick={handleSend}
                   disabled={!inputText.trim() && !attachedImage}
                   title="Send Message (Enter)"
-                  className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
+                  className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
                     inputText.trim() || attachedImage
-                      ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md active:scale-90 cursor-pointer hover:shadow-lg' 
-                      : 'bg-slate-200/80 dark:bg-white/15 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60'
+                      ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm hover:opacity-90 active:scale-95 cursor-pointer' 
+                      : 'bg-slate-100 dark:bg-white/10 text-slate-300 dark:text-slate-600 cursor-not-allowed'
                   }`}
                 >
-                  <ArrowUp className="w-4 h-4 stroke-[2.5]" />
+                  <ArrowUp className="w-4 h-4 stroke-[2.2]" />
                 </button>
               )}
 

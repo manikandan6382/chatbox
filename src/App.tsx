@@ -1,11 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { StarterCards } from './components/StarterCards';
-import { FlowCard } from './components/FlowCard';
-import { FinancialCardWidget } from './components/FinancialCardWidget';
 import { Composer } from './components/Composer';
 import { VoiceOverlay } from './components/VoiceOverlay';
-import { CardDetailModal } from './components/CardDetailModal';
 import { RobotAvatar } from './components/RobotAvatar';
 import { UserAvatar } from './components/UserAvatar';
 import { RightNavigation } from './components/RightNavigation';
@@ -14,9 +11,6 @@ import { sounds } from './utils/audio';
 import { ChatThreadItem } from './types';
 import { FormattedMessage } from './components/FormattedMessage';
 import { streamGeminiResponse, ChatMessageContext, generateContextualImageAnalysis } from './services/aiService';
-import { ReturnCalculatorWidget } from './components/ReturnCalculatorWidget';
-import { KioskSessionGuard } from './components/KioskSessionGuard';
-import { FinancialWidgetType } from './components/FinancialCardWidget';
 import { 
   Sun, Moon, Copy, Check, Volume2, VolumeX, X, RotateCcw
 } from 'lucide-react';
@@ -26,10 +20,6 @@ interface Message {
   text: string;
   image?: string;
   time?: string;
-  hasFlow?: boolean;
-  hasCardWidget?: boolean;
-  cardWidgetType?: FinancialWidgetType;
-  hasCalculator?: boolean;
   canRetry?: boolean;
 }
 
@@ -37,7 +27,6 @@ export const App: React.FC = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [activeSidebarItem, setActiveSidebarItem] = useState<string>('onboarding-flow');
   const [isVoiceOpen, setIsVoiceOpen] = useState<boolean>(false);
-  const [isCardDetailOpen, setIsCardDetailOpen] = useState<boolean>(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [isThinking, setIsThinking] = useState<boolean>(false);
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
@@ -456,26 +445,6 @@ export const App: React.FC = () => {
 
     const lowerText = promptText.toLowerCase();
     const hasFlow = lowerText.includes('flow') || lowerText.includes('onboarding') || lowerText.includes('diagram');
-
-    let cardWidgetType: FinancialWidgetType = 'saveup';
-    let hasCardWidget = false;
-    let hasCalculator = false;
-
-    if (lowerText.includes('asnb') || lowerText.includes('asb') || lowerText.includes('asm')) {
-      hasCardWidget = true;
-      cardWidgetType = 'asnb';
-    } else if (lowerText.includes('fixed deposit') || lowerText.includes('fd') || lowerText.includes('fd and asnb')) {
-      hasCardWidget = true;
-      cardWidgetType = 'fd';
-    } else if (lowerText.includes('savings') || lowerText.includes('saveup') || lowerText.includes('card') || lowerText.includes('start saving')) {
-      hasCardWidget = true;
-      cardWidgetType = 'saveup';
-    }
-
-    if (lowerText.includes('return') || lowerText.includes('yield') || lowerText.includes('compare fd') || lowerText.includes('which account gives') || lowerText.includes('simulator') || lowerText.includes('calculator') || lowerText.includes('optimize')) {
-      hasCalculator = true;
-    }
-
     const newAiMessageTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     // Prepare message history context for Gemini
@@ -502,10 +471,7 @@ export const App: React.FC = () => {
                 sender: 'ai', 
                 text: '', 
                 time: newAiMessageTime,
-                hasFlow,
-                hasCardWidget,
-                cardWidgetType,
-                hasCalculator
+                hasFlow
               }
             ]
           }));
@@ -539,10 +505,7 @@ export const App: React.FC = () => {
               sender: 'ai', 
               text: smartResponse, 
               time: newAiMessageTime,
-              hasFlow,
-              hasCardWidget,
-              cardWidgetType,
-              hasCalculator
+              hasFlow
             }
           ]
         }));
@@ -566,12 +529,8 @@ export const App: React.FC = () => {
       setIsStreaming(false);
       abortControllerRef.current = null;
 
-      // Provide intelligent analysis coupled with offline protocol notification
+      // Provide intelligent analysis cleanly without robotic debug notes or blockquote arrows
       const fallbackAnalysis = generateContextualImageAnalysis(promptText, !!image);
-      const isMissingKey = err?.message?.includes('missing') || err?.message?.includes('API key');
-      const advisoryNote = isMissingKey
-        ? `\n\n> ℹ️ *Maybank Sovereign Vision Protocol Active (Offline Demonstration Mode).*`
-        : `\n\n> ℹ️ *Maybank Sovereign Vision Protocol Active (${err?.message || 'Branch Gateway Protocol'}).*`;
 
       setThreads(prev => ({
         ...prev,
@@ -579,9 +538,8 @@ export const App: React.FC = () => {
           ...(prev[targetThreadId] || []),
           {
             sender: 'ai',
-            text: `${fallbackAnalysis}${advisoryNote}`,
-            time: newAiMessageTime,
-            hasCardWidget
+            text: fallbackAnalysis,
+            time: newAiMessageTime
           }
         ]
       }));
@@ -984,10 +942,10 @@ export const App: React.FC = () => {
         {/* Center Conversation Canvas (Dynamic Zero-Scroll Fit when greeting, Smooth Scroll when chatting) */}
         <div 
           ref={scrollContainerRef}
-          className={`flex-1 min-h-0 px-3 sm:px-6 md:px-8 py-1 ios-scroll ${
+          className={`flex-1 min-h-0 px-2.5 sm:px-6 md:px-8 py-1 ios-scroll overflow-x-hidden ${
             messages.length === 0 
               ? 'overflow-y-auto lg:overflow-hidden flex flex-col justify-center' 
-              : 'overflow-y-auto custom-scrollbar'
+              : 'overflow-y-auto custom-scrollbar pb-3 sm:pb-6'
           }`}
         >
           
@@ -1050,8 +1008,8 @@ export const App: React.FC = () => {
                     <div key={index}>
                       {msg.sender === 'user' ? (
                         /* Apple Royal Obsidian User Bubble */
-                        <div className="flex justify-end items-start gap-3 max-w-2xl ml-auto group">
-                          <div className="flex flex-col items-end">
+                        <div className="flex justify-end items-start gap-1.5 sm:gap-2.5 max-w-[88%] sm:max-w-xl md:max-w-2xl ml-auto min-w-0 group">
+                          <div className="flex flex-col items-end min-w-0 max-w-full">
                             {/* Attached Image Glass Thumbnail */}
                             {msg.image && (
                               <div 
@@ -1070,18 +1028,18 @@ export const App: React.FC = () => {
                               </div>
                             )}
 
-                            <div className="bg-slate-900 text-white dark:bg-[#1E293B]/95 dark:text-slate-100 px-5 py-3.5 rounded-3xl rounded-tr-sm text-[14px] leading-relaxed font-normal shadow-md border border-slate-800/10 dark:border-white/15 backdrop-blur-xl transition-all">
+                            <div className="bg-slate-900 text-white dark:bg-[#1E293B]/95 dark:text-slate-100 px-3.5 py-2.5 sm:px-5 sm:py-3.5 rounded-3xl rounded-tr-sm text-[13.5px] sm:text-[14px] leading-relaxed font-normal shadow-md border border-slate-800/10 dark:border-white/15 backdrop-blur-xl transition-all break-words [overflow-wrap:anywhere] min-w-0 max-w-full">
                               {msg.text}
                             </div>
                             <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 pr-1 font-medium">
                               {msg.time || '10:24 AM'}
                             </span>
                           </div>
-                          <UserAvatar size="md" className="mt-0.5" />
+                          <UserAvatar size="md" className="mt-0.5 flex-shrink-0" />
                         </div>
                       ) : (
                         /* Apple Luxury AI Bubble with 3D Cute Eye-Tracking Robot */
-                        <div className="flex items-start gap-4 w-full">
+                        <div className="flex items-start gap-1.5 sm:gap-2.5 w-full min-w-0">
                           
                           {/* 3D Cute Interactive Cyber Robot Avatar with Blinking & Winking */}
                           <RobotAvatar 
@@ -1090,13 +1048,13 @@ export const App: React.FC = () => {
                             className="mt-1 flex-shrink-0" 
                           />
 
-                          <div className="flex-1 space-y-3 min-w-0">
+                          <div className="flex-1 space-y-3 min-w-0 max-w-full">
                             
                             {/* Ceramic Glass Response Card */}
-                            <div className="bg-white/95 dark:bg-[#131722]/90 backdrop-blur-2xl text-slate-800 dark:text-slate-100 p-5 rounded-3xl rounded-tl-sm text-[14px] leading-relaxed border border-slate-200/90 dark:border-white/10 shadow-[0_12px_36px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.45)] transition-all">
+                            <div className="bg-white/95 dark:bg-[#131722]/90 backdrop-blur-2xl text-slate-800 dark:text-slate-100 p-3.5 sm:p-5 rounded-3xl rounded-tl-sm text-[13.5px] sm:text-[14px] leading-relaxed border border-slate-200/90 dark:border-white/10 shadow-[0_12px_36px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.45)] transition-all min-w-0 max-w-full overflow-hidden">
                               
                               {/* Card Header */}
-                              <div className="flex items-center justify-between gap-2 mb-2.5 pb-2 border-b border-slate-100 dark:border-white/5">
+                              <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-slate-100 dark:border-white/5">
                                 <span className="text-xs font-bold text-slate-900 dark:text-white tracking-tight">Maybank AI</span>
                                 <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
                                   {msg.time || '10:25 AM'}
@@ -1109,34 +1067,22 @@ export const App: React.FC = () => {
                                 isStreaming={isStreaming && index === messages.length - 1} 
                               />
 
-                              {/* Interactive Return & Yield Simulator */}
-                              {msg.hasCalculator && (
-                                <ReturnCalculatorWidget onAskAboutPlan={(planPrompt) => handleSendMessage(planPrompt)} />
-                              )}
 
-                              {/* Polymorphic Interactive Financial Card Widget */}
-                              {msg.hasCardWidget && (
-                                <FinancialCardWidget 
-                                  type={msg.cardWidgetType || 'saveup'} 
-                                  onOpenCanvas={() => setIsCardDetailOpen(true)} 
-                                />
-                              )}
-
-                              {/* Apple Ghost Action Dock with 40px+ Kiosk Touch Ergonomics */}
-                              <div className="flex items-center gap-2 pt-3 mt-2 border-t border-slate-100 dark:border-white/5 text-slate-400">
+                              {/* Apple Ghost Action Dock with Kiosk Touch Ergonomics */}
+                              <div className="flex flex-wrap items-center gap-1 sm:gap-2 pt-2.5 mt-2 border-t border-slate-100 dark:border-white/5 text-slate-400">
                                 <button 
                                   onClick={() => handleCopyText(msg.text, index)}
                                   title="Copy response"
-                                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer min-h-[38px] touch-manipulation"
+                                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer min-h-[36px] touch-manipulation"
                                 >
-                                  {copiedIndex === index ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-                                  <span className="text-[12px] font-semibold">{copiedIndex === index ? 'Copied' : 'Copy'}</span>
+                                  {copiedIndex === index ? <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                                  <span className="text-[11px] sm:text-[12px] font-semibold">{copiedIndex === index ? 'Copied' : 'Copy'}</span>
                                 </button>
                                 
                                 <button 
                                   onClick={() => handleSpeak(msg.text, index)}
                                   title={speakingIndex === index ? "Stop audio" : "Listen to response"}
-                                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer min-h-[38px] touch-manipulation ${
+                                  className={`flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer min-h-[36px] touch-manipulation ${
                                     speakingIndex === index 
                                       ? 'bg-sky-500/15 text-sky-600 dark:text-sky-300 ring-1 ring-sky-400/30' 
                                       : 'hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10'
@@ -1149,9 +1095,9 @@ export const App: React.FC = () => {
                                       <span className="w-0.5 h-3.5 bg-sky-500 rounded-full animate-bounce" style={{ animationDuration: '0.7s', animationDelay: '0.3s' }} />
                                     </div>
                                   ) : (
-                                    <Volume2 className="w-4 h-4" />
+                                    <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                   )}
-                                  <span className="text-[12px] font-semibold">{speakingIndex === index ? 'Speaking...' : 'Listen'}</span>
+                                  <span className="text-[11px] sm:text-[12px] font-semibold">{speakingIndex === index ? 'Speaking...' : 'Listen'}</span>
                                 </button>
 
                                 {/* Inline Regenerate / Retry Pill for AI Message */}
@@ -1159,21 +1105,15 @@ export const App: React.FC = () => {
                                   <button 
                                     onClick={handleRegenerateResponse}
                                     title="Regenerate this response"
-                                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-500/10 active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer min-h-[38px] touch-manipulation"
+                                    className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-500/10 active:scale-90 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer min-h-[36px] touch-manipulation"
                                   >
-                                    <RotateCcw className="w-3.5 h-3.5" />
-                                    <span className="text-[12px] font-semibold">Retry</span>
+                                    <RotateCcw className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
+                                    <span className="text-[11px] sm:text-[12px] font-semibold">Retry</span>
                                   </button>
                                 )}
                               </div>
 
                             </div>
-
-                            {/* Process Flow Card (if applicable) */}
-                            {msg.hasFlow && (
-                              <FlowCard onOpenCanvas={() => setIsCardDetailOpen(true)} />
-                            )}
-
                           </div>
 
                         </div>
@@ -1183,9 +1123,9 @@ export const App: React.FC = () => {
 
                   {/* Real-time AI Thinking Shimmer Indicator */}
                   {isThinking && (
-                    <div className="flex items-start gap-4 w-full animate-in fade-in duration-300">
-                      <RobotAvatar isCurrent={true} size="lg" className="mt-0.5" />
-                      <div className="bg-white/85 dark:bg-[#131722]/85 backdrop-blur-2xl text-slate-800 dark:text-slate-100 px-5 py-4 rounded-3xl rounded-tl-sm border border-white/80 dark:border-white/10 shadow-sm flex items-center gap-3">
+                    <div className="flex items-start gap-1.5 sm:gap-2.5 w-full animate-in fade-in duration-300">
+                      <RobotAvatar isCurrent={true} size="lg" className="mt-0.5 flex-shrink-0" />
+                      <div className="bg-white/85 dark:bg-[#131722]/85 backdrop-blur-2xl text-slate-800 dark:text-slate-100 px-4 py-3 sm:px-5 sm:py-4 rounded-3xl rounded-tl-sm border border-white/80 dark:border-white/10 shadow-sm flex items-center gap-3">
                         <div className="flex items-center gap-1.5">
                           <span className="w-2 h-2 rounded-full bg-sky-500 animate-bounce" style={{ animationDuration: '0.6s' }} />
                           <span className="w-2 h-2 rounded-full bg-sky-500 animate-bounce" style={{ animationDuration: '0.6s', animationDelay: '0.15s' }} />
@@ -1235,12 +1175,6 @@ export const App: React.FC = () => {
           }}
         />
 
-        {/* Card Privileges Modal */}
-        <CardDetailModal 
-          isOpen={isCardDetailOpen}
-          onClose={() => setIsCardDetailOpen(false)}
-        />
-
       </main>
 
       {/* COLUMN 3: RIGHT NAVIGATION SUGGESTIONS & CONTEXT DRAWER (Mockup Match) */}
@@ -1249,14 +1183,6 @@ export const App: React.FC = () => {
         onClose={() => setIsRightNavOpen(false)}
         onSelectSuggestion={handleSelectSuggestion}
         highlightedTopic={highlightedTopic}
-      />
-
-      {/* MAS TRM Kiosk Inactivity Session Guard (60s idle timeout auto-reset) */}
-      <KioskSessionGuard 
-        isActiveSession={messages.length > 0} 
-        onResetSession={handleNewChat} 
-        idleTimeoutSeconds={60}
-        warningDurationSeconds={10}
       />
 
       {/* High-Definition Image Lightbox Modal */}
